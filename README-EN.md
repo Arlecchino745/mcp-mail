@@ -41,6 +41,7 @@ Through simple natural language instructions, AI can help you complete all the a
 ## Quick Start
 
 ### 0. Environment Preparation
+**Note: This project requires Python 3.11 or above. Please ensure you install Python 3.11+ with the 'Add Python to PATH' option checked, and restart your machine after installation.**
 
 <details>
 <summary>If you have never used Node.js before (click to expand)</summary>
@@ -88,6 +89,7 @@ npm run build
    - In the project root directory, create a `mcp.json` file
 
 2. Configure your email information
+   **Note: The format of mcp.json has been updated. The 'args' field should now point to the path of your cloned/unzipped GitHub repository's dist/index.js file. Do not delete that directory unless you really are careless!**
    ```json
    {
      "smtp": {
@@ -182,6 +184,7 @@ Follow these steps to configure MCP according to your operating system:
    - Note: Replace `your-username` with your Windows username
 
 2. Add or modify the configuration as follows:
+   **Note: The format of mcp.json has been updated. The 'args' field should now point to the path of your cloned/unzipped GitHub repository's dist/index.js file. Do not delete that directory unless you really are careless!**
 
 ```json
 {

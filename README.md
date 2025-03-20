@@ -41,6 +41,7 @@
 ## 快速上手
 
 ### 0. 环境准备
+**注意：本项目需要安装 Python 3.11 或更高版本。安装时请确保勾选 'Add Python to PATH' 选项，安装完成后请重启计算机。**
 
 <details>
 <summary>如果你之前没有使用过 Node.js (点击展开)</summary>
@@ -182,6 +183,7 @@ npm run build
    - 注意：请将 `你的用户名` 替换为你的 Windows 用户名
 
 2. 添加或修改配置如下：
+**注意：本项目 mcp.json 格式已更新，配置中的 args 现应指向你克隆/解压后的 GitHub 仓库中 dist/index.js 的路径。请勿删除该目录，除非你真的很手贱！**
 
 ```json
 {
