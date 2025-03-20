@@ -1,0 +1,19 @@
+﻿diff --git a/bridging_mail_mcp.py b/bridging_mail_mcp.py
+index 21590d2..a9d61fa 100644
+--- a/bridging_mail_mcp.py
++++ b/bridging_mail_mcp.py
+@@ -26,8 +26,13 @@ def main():
+     signal.signal(signal.SIGTERM, handle_termination)
+ 
+     try:
++        # Get the directory where the script is located
++        script_dir = os.path.dirname(os.path.abspath(__file__))
++        # Construct path to index.js relative to script location
++        index_js_path = os.path.join(script_dir, 'dist', 'index.js')
++        
+         proc = subprocess.Popen(
+-            "node C:/Users/Shuakami/mcp-mail/dist/index.js",
++            f"node {index_js_path}",
+             stdin=sys.stdin,
+             stdout=sys.stdout,
+             stderr=sys.stderr,
