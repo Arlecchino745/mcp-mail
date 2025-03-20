@@ -41,7 +41,6 @@ Through simple natural language instructions, AI can help you complete all the a
 ## Quick Start
 
 ### 0. Environment Preparation
-**Note: This project requires Python 3.11 or above. Please ensure you install Python 3.11+ with the 'Add Python to PATH' option checked, and restart your machine after installation.**
 
 <details>
 <summary>If you have never used Node.js before (click to expand)</summary>
@@ -64,6 +63,12 @@ Through simple natural language instructions, AI can help you complete all the a
    - Visit the [Git website](https://git-scm.com/)
    - Download and install Git
    - Use the default options during installation
+   
+4. Install Python 3.11 or higher (required)
+   - Visit the [Python website](https://www.python.org/downloads/)
+   - Download and install Python 3.11 or higher
+   - **Important**: You MUST check the "Add Python to PATH" option during installation
+   - **Restart your computer** after installation to ensure environment variables take effect
 </details>
 
 ### 1. Clone and Install
@@ -89,7 +94,6 @@ npm run build
    - In the project root directory, create a `mcp.json` file
 
 2. Configure your email information
-   **Note: The format of mcp.json has been updated. The 'args' field should now point to the path of your cloned/unzipped GitHub repository's dist/index.js file. Do not delete that directory unless you really are careless!**
    ```json
    {
      "smtp": {
@@ -184,19 +188,14 @@ Follow these steps to configure MCP according to your operating system:
    - Note: Replace `your-username` with your Windows username
 
 2. Add or modify the configuration as follows:
-   **Note: The format of mcp.json has been updated. The 'args' field should now point to the path of your cloned/unzipped GitHub repository's dist/index.js file. Do not delete that directory unless you really are careless!**
 
 ```json
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "powershell",
+      "command": "python",
       "args": [
-        "-WindowStyle",
-        "Hidden",
-        "-Command",
-        "node",
-        "C:/Users/your-username/mcp-mail/dist/index.js"
+        "C:/Users/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -204,8 +203,10 @@ Follow these steps to configure MCP according to your operating system:
 ```
 
 > ⚠️ **Please note**:
-> - Replace `your-username` with your Windows username (e.g., `C:/Users/John/mcp-mail/...`)
-> - Make sure the path correctly points to your project directory
+> - Replace `your-username` with your Windows username
+> - Ensure the path correctly points to where you cloned or extracted the project
+> - The path should reflect the actual location where you placed the project files
+> - **Do not delete the cloned or extracted folder**, as this will cause the MCP to stop working
 </details>
 
 <details>
@@ -220,10 +221,9 @@ Follow these steps to configure MCP according to your operating system:
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "bash",
+      "command": "python3",
       "args": [
-        "-c",
-        "node /Users/your-username/mcp-mail/dist/index.js"
+        "/Users/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -231,8 +231,10 @@ Follow these steps to configure MCP according to your operating system:
 ```
 
 > ⚠️ **Please note**:
-> - Replace `your-username` with your macOS username (e.g., `/Users/johndoe/mcp-mail/...`)
-> - Make sure the path correctly points to your project directory
+> - Replace `your-username` with your macOS username
+> - Ensure the path correctly points to where you cloned or extracted the project
+> - The path should reflect the actual location where you placed the project files
+> - **Do not delete the cloned or extracted folder**, as this will cause the MCP to stop working
 </details>
 
 <details>
@@ -247,10 +249,9 @@ Follow these steps to configure MCP according to your operating system:
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "bash",
+      "command": "python3",
       "args": [
-        "-c",
-        "node /home/your-username/mcp-mail/dist/index.js"
+        "/home/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -258,8 +259,10 @@ Follow these steps to configure MCP according to your operating system:
 ```
 
 > ⚠️ **Please note**:
-> - Replace `your-username` with your Linux username (e.g., `/home/user/mcp-mail/...`)
-> - Make sure the path correctly points to your project directory
+> - Replace `your-username` with your Linux username
+> - Ensure the path correctly points to where you cloned or extracted the project
+> - The path should reflect the actual location where you placed the project files
+> - **Do not delete the cloned or extracted folder**, as this will cause the MCP to stop working
 </details>
 
 ### 5. Start the Service

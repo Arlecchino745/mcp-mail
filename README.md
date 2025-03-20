@@ -41,7 +41,6 @@
 ## 快速上手
 
 ### 0. 环境准备
-**注意：本项目需要安装 Python 3.11 或更高版本。安装时请确保勾选 'Add Python to PATH' 选项，安装完成后请重启计算机。**
 
 <details>
 <summary>如果你之前没有使用过 Node.js (点击展开)</summary>
@@ -64,6 +63,12 @@
    - 访问 [Git 官网](https://git-scm.com/)
    - 下载并安装 Git
    - 安装时使用默认选项即可
+
+4. 安装 Python 3.11 或更高版本（必需）
+   - 访问 [Python 官网](https://www.python.org/downloads/)
+   - 下载并安装 Python 3.11 或更高版本
+   - **重要**：安装时必须勾选"Add Python to PATH"选项
+   - 安装完成后**重启电脑**，确保环境变量生效
 </details>
 
 ### 1. 克隆并安装
@@ -183,19 +188,14 @@ npm run build
    - 注意：请将 `你的用户名` 替换为你的 Windows 用户名
 
 2. 添加或修改配置如下：
-**注意：本项目 mcp.json 格式已更新，配置中的 args 现应指向你克隆/解压后的 GitHub 仓库中 dist/index.js 的路径。请勿删除该目录，除非你真的很手贱！**
 
 ```json
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "powershell",
+      "command": "python",
       "args": [
-        "-WindowStyle",
-        "Hidden",
-        "-Command",
-        "node",
-        "C:/Users/你的用户名/mcp-mail/dist/index.js"
+        "C:/Users/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -203,8 +203,10 @@ npm run build
 ```
 
 > ⚠️ **请注意**:
-> - 将 `你的用户名` 替换为你的 Windows 用户名（例如：`C:/Users/John/mcp-mail/...`）
-> - 确保路径正确指向你的项目目录
+> - 将 `你的用户名` 替换为你的 Windows 用户名
+> - 确保路径正确指向你克隆或解压的项目目录
+> - 路径应该反映你将项目文件放置的实际位置
+> - **不要删除克隆或解压的文件夹**，这会导致 MCP 无法正常工作
 </details>
 
 <details>
@@ -219,10 +221,9 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "bash",
+      "command": "python3",
       "args": [
-        "-c",
-        "node /Users/你的用户名/mcp-mail/dist/index.js"
+        "/Users/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -230,8 +231,10 @@ npm run build
 ```
 
 > ⚠️ **请注意**:
-> - 将 `你的用户名` 替换为你的 macOS 用户名（例如：`/Users/johndoe/mcp-mail/...`）
-> - 确保路径正确指向你的项目目录
+> - 将 `你的用户名` 替换为你的 macOS 用户名
+> - 确保路径正确指向你克隆或解压的项目目录
+> - 路径应该反映你将项目文件放置的实际位置
+> - **不要删除克隆或解压的文件夹**，这会导致 MCP 无法正常工作
 </details>
 
 <details>
@@ -246,10 +249,9 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "bash",
+      "command": "python3",
       "args": [
-        "-c",
-        "node /home/你的用户名/mcp-mail/dist/index.js"
+        "/home/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
     }
   }
@@ -257,8 +259,10 @@ npm run build
 ```
 
 > ⚠️ **请注意**:
-> - 将 `你的用户名` 替换为你的 Linux 用户名（例如：`/home/user/mcp-mail/...`）
-> - 确保路径正确指向你的项目目录
+> - 将 `你的用户名` 替换为你的 Linux 用户名
+> - 确保路径正确指向你克隆或解压的项目目录
+> - 路径应该反映你将项目文件放置的实际位置
+> - **不要删除克隆或解压的文件夹**，这会导致 MCP 无法正常工作
 </details>
 
 ### 5. 启动服务
