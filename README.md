@@ -249,7 +249,7 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "pythonw3",
+      "command": "python3",
       "args": [
         "/home/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]

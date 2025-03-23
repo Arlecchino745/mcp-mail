@@ -249,7 +249,7 @@ Follow these steps to configure MCP according to your operating system:
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "pythonw3",
+      "command": "python3",
       "args": [
         "/home/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
