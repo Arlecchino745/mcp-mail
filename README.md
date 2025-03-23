@@ -193,7 +193,7 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "python",
+      "command": "pythonw",
       "args": [
         "C:/Users/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
@@ -221,7 +221,7 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "python3",
+      "command": "pythonw3",
       "args": [
         "/Users/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
@@ -249,7 +249,7 @@ npm run build
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "python3",
+      "command": "pythonw3",
       "args": [
         "/home/你的用户名/mcp-mail/bridging_mail_mcp.py"
       ]
