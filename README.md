@@ -77,6 +77,7 @@
 git clone https://github.com/shuakami/mcp-mail.git
 cd mcp-mail
 npm install
+npm run build
 ```
 
 ### 2. 构建项目
