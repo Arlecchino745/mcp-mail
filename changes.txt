@@ -1,0 +1,137 @@
+﻿diff --git a/src/tools/mail-service.ts b/src/tools/mail-service.ts
+index fa95486..9c5a70e 100644
+--- a/src/tools/mail-service.ts
++++ b/src/tools/mail-service.ts
+@@ -1046,4 +1046,52 @@ export class MailService {
+     processStruct(struct, prefix);
+     return attachments;
+   }
++
++  /**
++   * 批量将邮件标记为已读
++   */
++  async markMultipleAsRead(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
++    await this.connectImap();
++
++    return new Promise((resolve, reject) => {
++      this.imapClient.openBox(folder, false, (err) => {
++        if (err) {
++          reject(err);
++          return;
++        }
++
++        this.imapClient.addFlags(uids, '\\Seen', (err) => {
++          if (err) {
++            reject(err);
++            return;
++          }
++          resolve(true);
++        });
++      });
++    });
++  }
++
++  /**
++   * 批量将邮件标记为未读
++   */
++  async markMultipleAsUnread(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
++    await this.connectImap();
++
++    return new Promise((resolve, reject) => {
++      this.imapClient.openBox(folder, false, (err) => {
++        if (err) {
++          reject(err);
++          return;
++        }
++
++        this.imapClient.delFlags(uids, '\\Seen', (err) => {
++          if (err) {
++            reject(err);
++            return;
++          }
++          resolve(true);
++        });
++      });
++    });
++  }
+ } 
+\ No newline at end of file
+diff --git a/src/tools/mail.ts b/src/tools/mail.ts
+index e9589ae..00542c0 100644
+--- a/src/tools/mail.ts
++++ b/src/tools/mail.ts
+@@ -911,6 +911,74 @@ export class MailMCP {
+    * 注册邮件标记工具
+    */
+   private registerFlagTools(): void {
++    // 批量将邮件标记为已读
++    this.server.tool(
++      "markMultipleAsRead",
++      {
++        uids: z.array(z.number()),
++        folder: z.string().default('INBOX')
++      },
++      async ({ uids, folder }) => {
++        try {
++          const success = await this.mailService.markMultipleAsRead(uids, folder);
++          
++          if (success) {
++            return {
++              content: [
++                { type: "text", text: `已将 ${uids.length} 封邮件标记为已读` }
++              ]
++            };
++          } else {
++            return {
++              content: [
++                { type: "text", text: `批量标记邮件为已读失败` }
++              ]
++            };
++          }
++        } catch (error) {
++          return {
++            content: [
++              { type: "text", text: `批量标记邮件为已读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
++            ]
++          };
++        }
++      }
++    );
++
++    // 批量将邮件标记为未读
++    this.server.tool(
++      "markMultipleAsUnread",
++      {
++        uids: z.array(z.number()),
++        folder: z.string().default('INBOX')
++      },
++      async ({ uids, folder }) => {
++        try {
++          const success = await this.mailService.markMultipleAsUnread(uids, folder);
++          
++          if (success) {
++            return {
++              content: [
++                { type: "text", text: `已将 ${uids.length} 封邮件标记为未读` }
++              ]
++            };
++          } else {
++            return {
++              content: [
++                { type: "text", text: `批量标记邮件为未读失败` }
++              ]
++            };
++          }
++        } catch (error) {
++          return {
++            content: [
++              { type: "text", text: `批量标记邮件为未读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
++            ]
++          };
++        }
++      }
++    );
++
+     // 将邮件标记为已读
+     this.server.tool(
+       "markAsRead",

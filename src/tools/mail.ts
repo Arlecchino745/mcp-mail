@@ -911,6 +911,74 @@ export class MailMCP {
    * 注册邮件标记工具
    */
   private registerFlagTools(): void {
+    // 批量将邮件标记为已读
+    this.server.tool(
+      "markMultipleAsRead",
+      {
+        uids: z.array(z.number()),
+        folder: z.string().default('INBOX')
+      },
+      async ({ uids, folder }) => {
+        try {
+          const success = await this.mailService.markMultipleAsRead(uids, folder);
+          
+          if (success) {
+            return {
+              content: [
+                { type: "text", text: `已将 ${uids.length} 封邮件标记为已读` }
+              ]
+            };
+          } else {
+            return {
+              content: [
+                { type: "text", text: `批量标记邮件为已读失败` }
+              ]
+            };
+          }
+        } catch (error) {
+          return {
+            content: [
+              { type: "text", text: `批量标记邮件为已读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+            ]
+          };
+        }
+      }
+    );
+
+    // 批量将邮件标记为未读
+    this.server.tool(
+      "markMultipleAsUnread",
+      {
+        uids: z.array(z.number()),
+        folder: z.string().default('INBOX')
+      },
+      async ({ uids, folder }) => {
+        try {
+          const success = await this.mailService.markMultipleAsUnread(uids, folder);
+          
+          if (success) {
+            return {
+              content: [
+                { type: "text", text: `已将 ${uids.length} 封邮件标记为未读` }
+              ]
+            };
+          } else {
+            return {
+              content: [
+                { type: "text", text: `批量标记邮件为未读失败` }
+              ]
+            };
+          }
+        } catch (error) {
+          return {
+            content: [
+              { type: "text", text: `批量标记邮件为未读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+            ]
+          };
+        }
+      }
+    );
+
     // 将邮件标记为已读
     this.server.tool(
       "markAsRead",

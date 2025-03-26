@@ -1046,4 +1046,52 @@ export class MailService {
     processStruct(struct, prefix);
     return attachments;
   }
+
+  /**
+   * 批量将邮件标记为已读
+   */
+  async markMultipleAsRead(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
+    await this.connectImap();
+
+    return new Promise((resolve, reject) => {
+      this.imapClient.openBox(folder, false, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        this.imapClient.addFlags(uids, '\\Seen', (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(true);
+        });
+      });
+    });
+  }
+
+  /**
+   * 批量将邮件标记为未读
+   */
+  async markMultipleAsUnread(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
+    await this.connectImap();
+
+    return new Promise((resolve, reject) => {
+      this.imapClient.openBox(folder, false, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        this.imapClient.delFlags(uids, '\\Seen', (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(true);
+        });
+      });
+    });
+  }
 } 
