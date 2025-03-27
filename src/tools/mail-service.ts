@@ -512,8 +512,11 @@ export class MailService {
   /**
    * 将邮件标记为已读
    */
-  async markAsRead(uid: number, folder: string = 'INBOX'): Promise<boolean> {
+  async markAsRead(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保 uid 为数字类型
+    const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -522,7 +525,7 @@ export class MailService {
           return;
         }
 
-        this.imapClient.addFlags(uid, '\\Seen', (err) => {
+        this.imapClient.addFlags(numericUid, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -536,8 +539,11 @@ export class MailService {
   /**
    * 将邮件标记为未读
    */
-  async markAsUnread(uid: number, folder: string = 'INBOX'): Promise<boolean> {
+  async markAsUnread(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保 uid 为数字类型
+    const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -546,7 +552,7 @@ export class MailService {
           return;
         }
 
-        this.imapClient.delFlags(uid, '\\Seen', (err) => {
+        this.imapClient.delFlags(numericUid, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -560,8 +566,11 @@ export class MailService {
   /**
    * 删除邮件
    */
-  async deleteMail(uid: number, folder: string = 'INBOX'): Promise<boolean> {
+  async deleteMail(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保 uid 为数字类型
+    const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -570,7 +579,7 @@ export class MailService {
           return;
         }
 
-        this.imapClient.addFlags(uid, '\\Deleted', (err) => {
+        this.imapClient.addFlags(numericUid, '\\Deleted', (err) => {
           if (err) {
             reject(err);
             return;
@@ -591,8 +600,11 @@ export class MailService {
   /**
    * 移动邮件到其他文件夹
    */
-  async moveMail(uid: number, sourceFolder: string, targetFolder: string): Promise<boolean> {
+  async moveMail(uid: number | string, sourceFolder: string, targetFolder: string): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保 uid 为数字类型
+    const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(sourceFolder, false, (err) => {
@@ -601,7 +613,7 @@ export class MailService {
           return;
         }
 
-        this.imapClient.move(uid, targetFolder, (err) => {
+        this.imapClient.move(numericUid, targetFolder, (err) => {
           if (err) {
             reject(err);
             return;
@@ -1050,8 +1062,11 @@ export class MailService {
   /**
    * 批量将邮件标记为已读
    */
-  async markMultipleAsRead(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
+  async markMultipleAsRead(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保所有 uid 都是数字类型
+    const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -1059,8 +1074,8 @@ export class MailService {
           reject(err);
           return;
         }
-
-        this.imapClient.addFlags(uids, '\\Seen', (err) => {
+        
+        this.imapClient.addFlags(numericUids, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -1074,8 +1089,11 @@ export class MailService {
   /**
    * 批量将邮件标记为未读
    */
-  async markMultipleAsUnread(uids: number[], folder: string = 'INBOX'): Promise<boolean> {
+  async markMultipleAsUnread(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
+    
+    // 确保所有 uid 都是数字类型
+    const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -1083,8 +1101,8 @@ export class MailService {
           reject(err);
           return;
         }
-
-        this.imapClient.delFlags(uids, '\\Seen', (err) => {
+        
+        this.imapClient.delFlags(numericUids, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -1100,27 +1118,36 @@ export class MailService {
    * 此方法使用轮询方式检测新邮件的到达。主要用于需要等待用户邮件回复的场景。
    * 
    * 工作原理：
-   * 1. 连接到IMAP服务器并获取当前邮件数量
-   * 2. 每5秒检查一次邮件数量
-   * 3. 如果发现新邮件，获取最新的邮件内容（包括完整的邮件正文）
-   * 4. 如果超过指定时间仍未收到新邮件，则返回null
+   * 1. 首先检查是否有5分钟内的未读邮件，如果有，返回特殊状态提示需要先处理这些邮件
+   * 2. 如果没有最近的未读邮件，则：
+   *    - 连接到IMAP服务器并获取当前邮件数量
+   *    - 每5秒检查一次邮件数量
+   *    - 如果发现新邮件，获取最新的邮件内容
+   *    - 如果超过指定时间仍未收到新邮件，则返回null
    * 
    * @param folder 要监听的文件夹，默认为'INBOX'（收件箱）
    * @param timeout 超时时间（毫秒），默认为3小时。超时后返回null
-   * @returns 如果在超时前收到新邮件，返回邮件详情（包含完整内容）；如果超时，返回null
+   * @returns 如果在超时前收到新邮件，返回邮件详情；如果超时，返回null；如果有最近未读邮件，返回带有特殊标记的邮件列表
    */
-  async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<MailItem | null> {
+  async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<MailItem | null | { type: 'unread_warning'; mails: MailItem[] }> {
     await this.connectImap();
 
-    // 预检查现有邮件
+    // 检查5分钟内的未读邮件
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const existingMails = await this.searchMails({
       folder,
       limit: 5,
-      readStatus: 'unread'
+      readStatus: 'unread',
+      fromDate: fiveMinutesAgo
     });
 
+    // 如果有5分钟内的未读邮件，返回特殊状态
     if (existingMails.length > 0) {
-      console.log(`[waitForNewReply] 警告：检测到${existingMails.length}封未读邮件，建议先检查这些邮件是否包含所需回复`);
+      console.log(`[waitForNewReply] 发现${existingMails.length}封最近5分钟内的未读邮件，需要先处理`);
+      return {
+        type: 'unread_warning',
+        mails: existingMails
+      };
     }
 
     return new Promise((resolve, reject) => {
@@ -1129,6 +1156,7 @@ export class MailService {
       let initialCount = 0;
       let checkInterval: NodeJS.Timeout;
 
+      // 清理函数
       const cleanup = () => {
         if (timeoutId) {
           clearTimeout(timeoutId);

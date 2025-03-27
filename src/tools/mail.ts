@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { MailService, MailConfig, MailInfo, MailSearchOptions } from './mail-service.js';
+import { MailService, MailConfig, MailInfo, MailSearchOptions, MailItem } from './mail-service.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -368,47 +368,57 @@ export class MailMCP {
       },
       async ({ folder, timeout }) => {
         try {
-          // 先检查现有未读邮件
-          const existingMails = await this.mailService.searchMails({
-            folder,
-            limit: 5,
-            readStatus: 'unread'
-          });
-
-          let warningText = '';
-          if (existingMails.length > 0) {
-            warningText = `⚠️ 提示：检测到${existingMails.length}封未读邮件，建议先检查这些邮件是否包含所需回复。\n`;
-            warningText += `未读邮件列表：\n`;
-            existingMails.forEach((mail, index) => {
-              const fromStr = mail.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
-              warningText += `${index + 1}. 主题: ${mail.subject}\n   发件人: ${fromStr}\n   UID: ${mail.uid}\n\n`;
-            });
-            warningText += `-------------------\n\n`;
-          }
-
-          const email = await this.mailService.waitForNewReply(folder, timeout);
+          const result = await this.mailService.waitForNewReply(folder, timeout);
           
-          if (!email) {
+          // 如果是未读邮件警告
+          if (result && typeof result === 'object' && 'type' in result && result.type === 'unread_warning') {
+            let warningText = `⚠️ 检测到${result.mails.length}封最近5分钟内的未读邮件。\n`;
+            warningText += `请先处理（阅读或回复）这些邮件，再继续等待新回复：\n\n`;
+            
+            result.mails.forEach((mail, index) => {
+              const fromStr = mail.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
+              warningText += `${index + 1}. 主题: ${mail.subject}\n`;
+              warningText += `   发件人: ${fromStr}\n`;
+              warningText += `   时间: ${mail.date.toLocaleString()}\n`;
+              warningText += `   UID: ${mail.uid}\n\n`;
+            });
+            
+            warningText += `提示：\n`;
+            warningText += `1. 使用 markAsRead 工具将邮件标记为已读\n`;
+            warningText += `2. 使用 getEmailDetail 工具查看邮件详情\n`;
+            warningText += `3. 处理完这些邮件后，再次调用 waitForReply 工具等待新回复\n`;
+            
             return {
               content: [
-                { type: "text", text: `${warningText}等待邮件回复超时（${timeout / 1000}秒）` }
+                { type: "text", text: warningText }
+              ]
+            };
+          }
+          
+          // 如果超时
+          if (!result) {
+            return {
+              content: [
+                { type: "text", text: `等待邮件回复超时（${timeout / 1000}秒）` }
               ]
             };
           }
 
+          // 收到新邮件
+          const email = result as MailItem;  // 添加类型断言
           const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
           const date = email.date.toLocaleString();
           const status = email.isRead ? '已读' : '未读';
           const attachmentInfo = email.hasAttachments ? '📎' : '';
           
-          let resultText = `${warningText}收到新邮件！\n\n`;
+          let resultText = `收到新邮件！\n\n`;
           resultText += `[${status}] ${attachmentInfo} 来自: ${fromStr}\n`;
           resultText += `主题: ${email.subject}\n`;
           resultText += `时间: ${date}\n`;
           resultText += `UID: ${email.uid}\n\n`;
           
           if (email.textBody) {
-            resultText += `内容:\n${email.textBody}`;
+            resultText += `内容:\n${email.textBody}\n\n`;
           }
           
           return {
@@ -988,7 +998,8 @@ export class MailMCP {
       },
       async ({ uids, folder }) => {
         try {
-          const success = await this.mailService.markMultipleAsRead(uids, folder);
+          const numericUids = uids.map(uid => Number(uid));
+          const success = await this.mailService.markMultipleAsRead(numericUids, folder);
           
           if (success) {
             return {
@@ -1022,7 +1033,8 @@ export class MailMCP {
       },
       async ({ uids, folder }) => {
         try {
-          const success = await this.mailService.markMultipleAsUnread(uids, folder);
+          const numericUids = uids.map(uid => Number(uid));
+          const success = await this.mailService.markMultipleAsUnread(numericUids, folder);
           
           if (success) {
             return {
@@ -1056,7 +1068,8 @@ export class MailMCP {
       },
       async ({ uid, folder }) => {
         try {
-          const success = await this.mailService.markAsRead(uid, folder);
+          const numericUid = Number(uid);
+          const success = await this.mailService.markAsRead(numericUid, folder);
           
           if (success) {
             return {
@@ -1090,7 +1103,8 @@ export class MailMCP {
       },
       async ({ uid, folder }) => {
         try {
-          const success = await this.mailService.markAsUnread(uid, folder);
+          const numericUid = Number(uid);
+          const success = await this.mailService.markAsUnread(numericUid, folder);
           
           if (success) {
             return {
