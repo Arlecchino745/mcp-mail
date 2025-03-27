@@ -232,7 +232,7 @@ export class MailMCP {
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `邮件发送成功，消息ID: ${result.messageId}` }
+                { type: "text", text: `邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
               ]
             };
           } else {
@@ -271,7 +271,7 @@ export class MailMCP {
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `简单邮件发送成功，消息ID: ${result.messageId}` }
+                { type: "text", text: `简单邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
               ]
             };
           } else {
@@ -333,7 +333,7 @@ export class MailMCP {
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `HTML邮件发送成功，消息ID: ${result.messageId}` }
+                { type: "text", text: `HTML邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
               ]
             };
           } else {
@@ -358,6 +358,74 @@ export class MailMCP {
    * 注册邮件接收和查询相关工具
    */
   private registerReceivingTools(): void {
+    // 等待新邮件回复
+    // 此工具用于等待用户的邮件回复。可以多次调用此工具，建议在调用前先检查现有邮件列表。
+    this.server.tool(
+      "waitForReply",
+      {
+        folder: z.string().default('INBOX'),
+        timeout: z.number().default(3 * 60 * 60 * 1000)
+      },
+      async ({ folder, timeout }) => {
+        try {
+          // 先检查现有未读邮件
+          const existingMails = await this.mailService.searchMails({
+            folder,
+            limit: 5,
+            readStatus: 'unread'
+          });
+
+          let warningText = '';
+          if (existingMails.length > 0) {
+            warningText = `⚠️ 提示：检测到${existingMails.length}封未读邮件，建议先检查这些邮件是否包含所需回复。\n`;
+            warningText += `未读邮件列表：\n`;
+            existingMails.forEach((mail, index) => {
+              const fromStr = mail.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
+              warningText += `${index + 1}. 主题: ${mail.subject}\n   发件人: ${fromStr}\n   UID: ${mail.uid}\n\n`;
+            });
+            warningText += `-------------------\n\n`;
+          }
+
+          const email = await this.mailService.waitForNewReply(folder, timeout);
+          
+          if (!email) {
+            return {
+              content: [
+                { type: "text", text: `${warningText}等待邮件回复超时（${timeout / 1000}秒）` }
+              ]
+            };
+          }
+
+          const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
+          const date = email.date.toLocaleString();
+          const status = email.isRead ? '已读' : '未读';
+          const attachmentInfo = email.hasAttachments ? '📎' : '';
+          
+          let resultText = `${warningText}收到新邮件！\n\n`;
+          resultText += `[${status}] ${attachmentInfo} 来自: ${fromStr}\n`;
+          resultText += `主题: ${email.subject}\n`;
+          resultText += `时间: ${date}\n`;
+          resultText += `UID: ${email.uid}\n\n`;
+          
+          if (email.textBody) {
+            resultText += `内容:\n${email.textBody}`;
+          }
+          
+          return {
+            content: [
+              { type: "text", text: resultText }
+            ]
+          };
+        } catch (error) {
+          return {
+            content: [
+              { type: "text", text: `等待邮件回复时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+            ]
+          };
+        }
+      }
+    );
+
     // 高级邮件搜索 - 支持多文件夹和复杂条件
     this.server.tool(
       "searchEmails",

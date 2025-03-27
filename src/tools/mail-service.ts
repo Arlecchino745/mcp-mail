@@ -1094,4 +1094,111 @@ export class MailService {
       });
     });
   }
+
+  /**
+   * 等待新邮件回复
+   * 此方法使用轮询方式检测新邮件的到达。主要用于需要等待用户邮件回复的场景。
+   * 
+   * 工作原理：
+   * 1. 连接到IMAP服务器并获取当前邮件数量
+   * 2. 每5秒检查一次邮件数量
+   * 3. 如果发现新邮件，获取最新的邮件内容（包括完整的邮件正文）
+   * 4. 如果超过指定时间仍未收到新邮件，则返回null
+   * 
+   * @param folder 要监听的文件夹，默认为'INBOX'（收件箱）
+   * @param timeout 超时时间（毫秒），默认为3小时。超时后返回null
+   * @returns 如果在超时前收到新邮件，返回邮件详情（包含完整内容）；如果超时，返回null
+   */
+  async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<MailItem | null> {
+    await this.connectImap();
+
+    // 预检查现有邮件
+    const existingMails = await this.searchMails({
+      folder,
+      limit: 5,
+      readStatus: 'unread'
+    });
+
+    if (existingMails.length > 0) {
+      console.log(`[waitForNewReply] 警告：检测到${existingMails.length}封未读邮件，建议先检查这些邮件是否包含所需回复`);
+    }
+
+    return new Promise((resolve, reject) => {
+      let timeoutId: NodeJS.Timeout;
+      let isResolved = false;
+      let initialCount = 0;
+      let checkInterval: NodeJS.Timeout;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (checkInterval) {
+          clearInterval(checkInterval);
+        }
+      };
+
+      // 设置超时
+      timeoutId = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          resolve(null);
+        }
+      }, timeout);
+
+      // 获取初始邮件数量并开始轮询
+      this.imapClient.openBox(folder, false, (err, mailbox) => {
+        if (err) {
+          cleanup();
+          reject(err);
+          return;
+        }
+
+        // 记录初始邮件数量
+        initialCount = mailbox.messages.total;
+        console.log(`[waitForNewReply] 初始邮件数量: ${initialCount}，开始等待新邮件回复...`);
+
+        // 每5秒检查一次新邮件
+        checkInterval = setInterval(async () => {
+          if (isResolved) return;
+
+          try {
+            // 重新打开邮箱以获取最新状态
+            this.imapClient.openBox(folder, false, async (err, mailbox) => {
+              if (err || isResolved) return;
+
+              const currentCount = mailbox.messages.total;
+              console.log(`[waitForNewReply] 当前邮件数量: ${currentCount}，初始数量: ${initialCount}`);
+
+              if (currentCount > initialCount) {
+                // 有新邮件，获取最新的邮件
+                try {
+                  const messages = await this.searchMails({
+                    folder,
+                    limit: 1
+                  });
+
+                  if (messages.length > 0 && !isResolved) {
+                    // 获取完整的邮件内容
+                    const fullMail = await this.getMailDetail(messages[0].uid, folder);
+                    if (fullMail) {
+                      console.log(`[waitForNewReply] 收到新邮件回复，主题: "${fullMail.subject}"`);
+                      isResolved = true;
+                      cleanup();
+                      resolve(fullMail);
+                    }
+                  }
+                } catch (error) {
+                  console.error('[waitForNewReply] 获取新邮件失败:', error);
+                }
+              }
+            });
+          } catch (error) {
+            console.error('[waitForNewReply] 检查新邮件时出错:', error);
+          }
+        }, 5000);
+      });
+    });
+  }
 } 
