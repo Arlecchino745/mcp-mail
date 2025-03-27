@@ -370,8 +370,11 @@ export class MailService {
   /**
    * 获取邮件详情
    */
-  async getMailDetail(uid: number, folder: string = 'INBOX'): Promise<MailItem | null> {
+  async getMailDetail(uid: number | string, folder: string = 'INBOX'): Promise<MailItem | null> {
     await this.connectImap();
+
+    // 确保 uid 为数字类型
+    const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, false, (err) => {
@@ -380,7 +383,7 @@ export class MailService {
           return;
         }
 
-        const fetch = this.imapClient.fetch([uid], {
+        const fetch = this.imapClient.fetch([numericUid], {
           bodies: '',
           struct: true,
           markSeen: false,
@@ -447,8 +450,8 @@ export class MailService {
                 }
 
                 mailItem = {
-                  id: uid.toString(),
-                  uid,
+                  id: numericUid.toString(),
+                  uid: numericUid,
                   subject: parsed.subject || '',
                   from,
                   to,
@@ -501,7 +504,7 @@ export class MailService {
           endReceived = true;
           // 如果邮件没有内容，或者处理过程中出现问题，尝试确保至少返回空结果
           if (!bodyParsed && !mailItem) {
-            console.log(`没有找到UID为${uid}的邮件或邮件内容为空`);
+            console.log(`没有找到UID为${numericUid}的邮件或邮件内容为空`);
           }
           checkAndResolve();
         });

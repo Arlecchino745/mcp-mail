@@ -666,20 +666,21 @@ export class MailMCP {
       async ({ uid, folder, contentRange }) => {
         try {
           // 对于QQ邮箱的特殊处理，先尝试获取邮件详情
-          let email = await this.mailService.getMailDetail(uid, folder);
+          const numericUid = Number(uid);
+          let email = await this.mailService.getMailDetail(numericUid, folder);
           
           // 如果正常获取失败，尝试通过搜索来获取指定UID的邮件
           if (!email) {
-            console.log(`通过常规方法获取邮件详情失败，尝试使用搜索方法获取UID为${uid}的邮件`);
+            console.log(`通过常规方法获取邮件详情失败，尝试使用搜索方法获取UID为${numericUid}的邮件`);
             const searchResults = await this.mailService.searchMails({ 
               folder: folder,
               limit: 50 // 搜索更多邮件以提高找到目标的可能性
             });
             
             // 从搜索结果中找到指定UID的邮件
-            const foundEmail = searchResults.find(e => e.uid === uid);
+            const foundEmail = searchResults.find(e => e.uid === numericUid);
             if (foundEmail) {
-              console.log(`在搜索结果中找到了UID为${uid}的邮件`);
+              console.log(`在搜索结果中找到了UID为${numericUid}的邮件`);
               email = foundEmail;
               
               // 尝试获取邮件正文（如果没有）
@@ -698,7 +699,7 @@ export class MailMCP {
           if (!email) {
             return {
               content: [
-                { type: "text", text: `未找到UID为${uid}的邮件` }
+                { type: "text", text: `未找到UID为${numericUid}的邮件` }
               ]
             };
           }
@@ -788,18 +789,19 @@ export class MailMCP {
       },
       async ({ uid, folder }) => {
         try {
-          const success = await this.mailService.deleteMail(uid, folder);
+          const numericUid = Number(uid);
+          const success = await this.mailService.deleteMail(numericUid, folder);
           
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${uid})已从${folder}文件夹中删除` }
+                { type: "text", text: `邮件(UID: ${numericUid})已从${folder}文件夹中删除` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `删除邮件(UID: ${uid})失败` }
+                { type: "text", text: `删除邮件(UID: ${numericUid})失败` }
               ]
             };
           }
@@ -823,18 +825,19 @@ export class MailMCP {
       },
       async ({ uid, sourceFolder, targetFolder }) => {
         try {
-          const success = await this.mailService.moveMail(uid, sourceFolder, targetFolder);
+          const numericUid = Number(uid);
+          const success = await this.mailService.moveMail(numericUid, sourceFolder, targetFolder);
           
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${uid})已成功从"${sourceFolder}"移动到"${targetFolder}"文件夹` }
+                { type: "text", text: `邮件(UID: ${numericUid})已成功从"${sourceFolder}"移动到"${targetFolder}"文件夹` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `移动邮件(UID: ${uid})失败` }
+                { type: "text", text: `移动邮件(UID: ${numericUid})失败` }
               ]
             };
           }
