@@ -37,7 +37,22 @@ export class ProcessManager {
     }
   }
 
-  public checkAndCreateLock(): boolean {
+  private async waitForProcessExit(pid: number, timeout: number = 5000): Promise<boolean> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      try {
+        process.kill(pid, 0);
+        // 进程还在运行，等待100ms
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (e) {
+        // 进程已退出
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public async checkAndCreateLock(): Promise<boolean> {
     try {
       // 检查锁文件是否存在
       if (fs.existsSync(LOCK_FILE)) {
@@ -47,12 +62,23 @@ export class ProcessManager {
           // 检查进程是否还在运行
           process.kill(lockData.pid, 0);
           console.log('检测到已有MCP实例运行，发送终止信号');
-          // 如果进程还在运行，发送终止信号
+          // 发送终止信号
           process.kill(lockData.pid, 'SIGTERM');
-          return false;
+          
+          // 等待旧进程退出
+          console.log('等待旧实例退出...');
+          const exited = await this.waitForProcessExit(lockData.pid);
+          if (!exited) {
+            console.error('等待旧实例退出超时');
+            return false;
+          }
+          
+          // 删除旧的锁文件
+          fs.unlinkSync(LOCK_FILE);
         } catch (e) {
-          // 进程不存在，可以继续
+          // 进程不存在，删除过期的锁文件
           console.log('检测到过期的锁文件，将创建新实例');
+          fs.unlinkSync(LOCK_FILE);
         }
       }
 
