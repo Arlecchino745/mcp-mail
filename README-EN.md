@@ -86,99 +86,7 @@ npm run build
 npm run build
 ```
 
-### 3. Configure Email Account
-
-<details>
-<summary><b>Email Configuration Steps</b> (click to expand)</summary>
-
-1. Create a configuration file
-   - In the project root directory, create a `mcp.json` file
-
-2. Configure your email information
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.example.com",
-       "port": 465,
-       "secure": true,
-       "auth": {
-         "user": "your.email@example.com",
-         "pass": "your-password-or-app-password"
-       }
-     },
-     "imap": {
-       "host": "imap.example.com",
-       "port": 993,
-       "secure": true,
-       "auth": {
-         "user": "your.email@example.com",
-         "pass": "your-password-or-app-password"
-       }
-     },
-     "defaults": {
-       "fromName": "Your Name",
-       "fromEmail": "your.email@example.com"
-     }
-   }
-   ```
-
-3. Configuration references for common email service providers
-
-   **QQ Mail**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.qq.com",
-       "port": 465,
-       "secure": true
-     },
-     "imap": {
-       "host": "imap.qq.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-   **Gmail**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.gmail.com",
-       "port": 465,
-       "secure": true
-     },
-     "imap": {
-       "host": "imap.gmail.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-   **Outlook/Hotmail**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp-mail.outlook.com",
-       "port": 587,
-       "secure": false
-     },
-     "imap": {
-       "host": "outlook.office365.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-> ⚠️ **Security Tips**:
-> - For services like Gmail and Outlook, use an [app-specific password](https://support.google.com/accounts/answer/185833) instead of your account password
-> - For QQ Mail, you need to enable POP3/SMTP/IMAP services in QQ Mail settings and obtain an authorization code
-> - Make sure your `mcp.json` file is not committed to a public code repository
-</details>
-
-### 4. Add to Cursor MCP Configuration
+### 3. Add to Cursor MCP Configuration
 
 Follow these steps to configure MCP according to your operating system:
 
@@ -197,7 +105,21 @@ Follow these steps to configure MCP according to your operating system:
       "command": "pythonw",
       "args": [
         "C:/Users/your-username/mcp-mail/bridging_mail_mcp.py"
-      ]
+      ],
+      "env": {
+        "SMTP_HOST": "smtp.qq.com",
+        "SMTP_PORT": "465",
+        "SMTP_SECURE": "true",
+        "SMTP_USER": "your.email@qq.com",
+        "SMTP_PASS": "your-app-specific-password",
+        "IMAP_HOST": "imap.qq.com",
+        "IMAP_PORT": "993",
+        "IMAP_SECURE": "true",
+        "IMAP_USER": "your.email@qq.com",
+        "IMAP_PASS": "your-app-specific-password",
+        "DEFAULT_FROM_NAME": "Your Name",
+        "DEFAULT_FROM_EMAIL": "your.email@qq.com"
+      }
     }
   }
 }
@@ -266,7 +188,7 @@ Follow these steps to configure MCP according to your operating system:
 > - **Do not delete the cloned or extracted folder**, as this will cause the MCP to stop working
 </details>
 
-### 5. Start the Service
+### 4. Start the Service
 
 After configuration, restart the Cursor editor, which will automatically start the MCP service. Then you can start using it.
 

@@ -86,99 +86,7 @@ npm run build
 npm run build
 ```
 
-### 3. 配置邮箱账户
-
-<details>
-<summary><b>邮箱配置步骤</b> (点击展开)</summary>
-
-1. 创建配置文件
-   - 在项目根目录下，创建 `mcp.json` 文件
-
-2. 配置你的邮箱信息
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.example.com",
-       "port": 465,
-       "secure": true,
-       "auth": {
-         "user": "your.email@example.com",
-         "pass": "your-password-or-app-password"
-       }
-     },
-     "imap": {
-       "host": "imap.example.com",
-       "port": 993,
-       "secure": true,
-       "auth": {
-         "user": "your.email@example.com",
-         "pass": "your-password-or-app-password"
-       }
-     },
-     "defaults": {
-       "fromName": "Your Name",
-       "fromEmail": "your.email@example.com"
-     }
-   }
-   ```
-
-3. 常见邮箱服务商配置参考
-
-   **QQ邮箱**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.qq.com",
-       "port": 465,
-       "secure": true
-     },
-     "imap": {
-       "host": "imap.qq.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-   **Gmail**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp.gmail.com",
-       "port": 465,
-       "secure": true
-     },
-     "imap": {
-       "host": "imap.gmail.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-   **Outlook/Hotmail**
-   ```json
-   {
-     "smtp": {
-       "host": "smtp-mail.outlook.com",
-       "port": 587,
-       "secure": false
-     },
-     "imap": {
-       "host": "outlook.office365.com",
-       "port": 993,
-       "secure": true
-     }
-   }
-   ```
-
-> ⚠️ **安全提示**:
-> - 对于 Gmail、Outlook 等服务，请使用 [应用专用密码](https://support.google.com/accounts/answer/185833)，而不是你的账户密码
-> - 对于 QQ 邮箱，需要在 QQ 邮箱设置中开启 POP3/SMTP/IMAP 服务并获取授权码
-> - 请确保你的 `mcp.json` 文件不会被提交到公共代码仓库
-</details>
-
-### 4. 添加到 Cursor MCP 配置
+### 3. 添加到 Cursor MCP 配置
 
 根据你的操作系统，按照以下步骤配置 MCP：
 
@@ -197,7 +105,21 @@ npm run build
       "command": "pythonw",
       "args": [
         "C:/Users/你的用户名/mcp-mail/bridging_mail_mcp.py"
-      ]
+      ],
+      "env": {
+        "SMTP_HOST": "smtp.qq.com",
+        "SMTP_PORT": "465",
+        "SMTP_SECURE": "true",
+        "SMTP_USER": "your.email@qq.com",
+        "SMTP_PASS": "your-app-specific-password",
+        "IMAP_HOST": "imap.qq.com",
+        "IMAP_PORT": "993",
+        "IMAP_SECURE": "true",
+        "IMAP_USER": "your.email@qq.com",
+        "IMAP_PASS": "your-app-specific-password",
+        "DEFAULT_FROM_NAME": "Your Name",
+        "DEFAULT_FROM_EMAIL": "your.email@qq.com"
+      }
     }
   }
 }
@@ -266,7 +188,7 @@ npm run build
 > - **不要删除克隆或解压的文件夹**，这会导致 MCP 无法正常工作
 </details>
 
-### 5. 启动服务
+### 4. 启动服务
 
 配置好之后，重启 Cursor 编辑器，它会自动启动 MCP 服务。然后你就可以开始使用了。
 
