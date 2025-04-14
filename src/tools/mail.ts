@@ -224,7 +224,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
     this.server.tool(
       "sendMail",
       {
-        to: z.string().or(z.array(z.string())),
+        to: z.array(z.string()),
         cc: z.string().or(z.array(z.string())).optional(),
         bcc: z.string().or(z.array(z.string())).optional(),
         subject: z.string(),
@@ -260,7 +260,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           }
           
           // 处理收件人信息，确保to字段一定存在
-          const to = typeof params.to === 'string' ? params.to : params.to;
+          const to = params.to;
           
           const mailInfo: MailInfo = {
             to: to,
@@ -499,8 +499,8 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       {
         keywords: z.string().optional(),
         folders: z.array(z.string()).optional(),
-        startDate: z.date().optional(),
-        endDate: z.date().optional(),
+        startDate: z.union([z.date(), z.string().datetime({ message: "startDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
+        endDate: z.union([z.date(), z.string().datetime({ message: "endDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
         from: z.string().optional(),
         to: z.string().optional(),
         subject: z.string().optional(),
@@ -511,11 +511,16 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       async (params) => {
         try {
           console.log(`开始执行高级邮件搜索，关键词: ${params.keywords || '无'}`);
+          
+          // 处理日期字符串
+          const startDate = typeof params.startDate === 'string' ? new Date(params.startDate) : params.startDate;
+          const endDate = typeof params.endDate === 'string' ? new Date(params.endDate) : params.endDate;
+
           const emails = await this.mailService.advancedSearchMails({
             folders: params.folders,
             keywords: params.keywords,
-            startDate: params.startDate,
-            endDate: params.endDate,
+            startDate: startDate,
+            endDate: endDate,
             from: params.from,
             to: params.to,
             subject: params.subject,
@@ -538,8 +543,8 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (params.from) searchTerms.push(`发件人包含"${params.from}"`);
           if (params.to) searchTerms.push(`收件人包含"${params.to}"`);
           if (params.subject) searchTerms.push(`主题包含"${params.subject}"`);
-          if (params.startDate) searchTerms.push(`开始日期${params.startDate.toLocaleDateString()}`);
-          if (params.endDate) searchTerms.push(`结束日期${params.endDate.toLocaleDateString()}`);
+          if (startDate) searchTerms.push(`开始日期${startDate.toLocaleDateString()}`);
+          if (endDate) searchTerms.push(`结束日期${endDate.toLocaleDateString()}`);
           if (params.hasAttachment) searchTerms.push(`包含附件`);
           
           const searchDescription = searchTerms.length > 0 
@@ -589,12 +594,16 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         from: z.string().optional(),
         to: z.string().optional(),
         subject: z.string().optional(),
-        fromDate: z.date().optional(),
-        toDate: z.date().optional(),
+        fromDate: z.union([z.date(), z.string().datetime({ message: "fromDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
+        toDate: z.union([z.date(), z.string().datetime({ message: "toDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
         hasAttachments: z.boolean().optional()
       },
       async (params) => {
         try {
+          // 处理日期字符串
+          const fromDate = typeof params.fromDate === 'string' ? new Date(params.fromDate) : params.fromDate;
+          const toDate = typeof params.toDate === 'string' ? new Date(params.toDate) : params.toDate;
+          
           const options: MailSearchOptions = {
             folder: params.folder,
             limit: params.limit,
@@ -602,8 +611,8 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             from: params.from,
             to: params.to,
             subject: params.subject,
-            fromDate: params.fromDate,
-            toDate: params.toDate,
+            fromDate: fromDate,
+            toDate: toDate,
             hasAttachments: params.hasAttachments
           };
 
