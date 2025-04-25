@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import signal
+import platform
 
 CREATE_NO_WINDOW = 0x08000000
 
@@ -31,14 +32,22 @@ def main():
         # Construct path to index.js relative to script location
         index_js_path = os.path.join(script_dir, 'dist', 'index.js')
         
+        # Prepare arguments for Popen, excluding creationflags initially
+        popen_kwargs = {
+            "stdin": sys.stdin,
+            "stdout": sys.stdout,
+            "stderr": sys.stderr,
+            "shell": True,
+            "env": os.environ,
+        }
+
+        # Conditionally add creationflags only on Windows
+        if platform.system() == "Windows":
+            popen_kwargs["creationflags"] = CREATE_NO_WINDOW
+
         proc = subprocess.Popen(
             f"node {index_js_path}",
-            stdin=sys.stdin,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            shell=True,
-            env=os.environ,
-            creationflags=CREATE_NO_WINDOW
+            **popen_kwargs
         )
 
         proc.wait()
