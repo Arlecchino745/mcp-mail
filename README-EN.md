@@ -144,7 +144,7 @@ Follow these steps to configure MCP according to your operating system:
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "python3",
+      "command": "pythonw",
       "args": [
         "/Users/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
@@ -172,7 +172,7 @@ Follow these steps to configure MCP according to your operating system:
 {
   "mcpServers": {
     "mail-mcp": {
-      "command": "python3",
+      "command": "pythonw",
       "args": [
         "/home/your-username/mcp-mail/bridging_mail_mcp.py"
       ]
