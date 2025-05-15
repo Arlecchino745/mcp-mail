@@ -1,0 +1,87 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - smtpHost
+      - smtpPort
+      - smtpSecure
+      - smtpUser
+      - smtpPass
+      - imapHost
+      - imapPort
+      - imapSecure
+      - imapUser
+      - imapPass
+      - defaultFromName
+      - defaultFromEmail
+    properties:
+      smtpHost:
+        type: string
+        description: SMTP server host
+      smtpPort:
+        type: number
+        description: SMTP server port
+      smtpSecure:
+        type: boolean
+        description: Use secure SMTP (SSL/TLS)
+      smtpUser:
+        type: string
+        description: SMTP username
+      smtpPass:
+        type: string
+        description: SMTP password
+      imapHost:
+        type: string
+        description: IMAP server host
+      imapPort:
+        type: number
+        description: IMAP server port
+      imapSecure:
+        type: boolean
+        description: Use secure IMAP (SSL/TLS)
+      imapUser:
+        type: string
+        description: IMAP username
+      imapPass:
+        type: string
+        description: IMAP password
+      defaultFromName:
+        type: string
+        description: Default 'From' name
+      defaultFromEmail:
+        type: string
+        description: Default 'From' email address
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({command: 'python3', args: ['bridging_mail_mcp.py'], env: {
+        SMTP_HOST: config.smtpHost,
+        SMTP_PORT: String(config.smtpPort),
+        SMTP_SECURE: String(config.smtpSecure),
+        SMTP_USER: config.smtpUser,
+        SMTP_PASS: config.smtpPass,
+        IMAP_HOST: config.imapHost,
+        IMAP_PORT: String(config.imapPort),
+        IMAP_SECURE: String(config.imapSecure),
+        IMAP_USER: config.imapUser,
+        IMAP_PASS: config.imapPass,
+        DEFAULT_FROM_NAME: config.defaultFromName,
+        DEFAULT_FROM_EMAIL: config.defaultFromEmail
+    }})
+  exampleConfig:
+    smtpHost: smtp.example.com
+    smtpPort: 465
+    smtpSecure: true
+    smtpUser: user@example.com
+    smtpPass: password123
+    imapHost: imap.example.com
+    imapPort: 993
+    imapSecure: true
+    imapUser: user@example.com
+    imapPass: password123
+    defaultFromName: John Doe
+    defaultFromEmail: user@example.com
