@@ -4,6 +4,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-38a169?style=flat-square)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-2b6cb0?style=flat-square)](https://www.typescriptlang.org/)
 [![Mail](https://img.shields.io/badge/Mail-MCP-ff69b4?style=flat-square)](https://github.com/shuakami/mcp-mail)
+[![smithery badge](https://smithery.ai/badge/@shuakami/mcp-mail)](https://smithery.ai/server/@shuakami/mcp-mail)
 
 [English Version (README-EN.md)](README-EN.md)
 
@@ -70,6 +71,14 @@
    - **重要**：安装时必须勾选"Add Python to PATH"选项
    - 安装完成后**重启电脑**，确保环境变量生效
 </details>
+
+### Installing via Smithery
+
+To install Mail MCP Tool for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@shuakami/mcp-mail):
+
+```bash
+npx -y @smithery/cli install @shuakami/mcp-mail --client claude
+```
 
 ### 1. 克隆并安装
 
