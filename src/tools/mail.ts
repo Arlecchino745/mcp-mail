@@ -10,10 +10,10 @@ export class MailMCP {
   private mailService: MailService;
 
   constructor() {
-    // 验证环境变量
+    // Validate environment variables
     this.validateEnvironmentVariables();
 
-    // 从环境变量加载配置
+    // Load configuration from environment variables
     const config: MailConfig = {
       smtp: {
         host: process.env.SMTP_HOST!,
@@ -39,27 +39,27 @@ export class MailMCP {
       }
     };
 
-    // 初始化邮件服务
+    // Initialize mail service
     this.mailService = new MailService(config);
 
-    // 初始化MCP服务器
+    // Initialize MCP server
     this.server = new McpServer({
       name: "mail-mcp",
       version: "1.0.0"
     });
 
-    // 注册工具
+    // Register tools
     this.registerTools();
 
-    // 连接到标准输入/输出
+    // Connect to standard input/output
     const transport = new StdioServerTransport();
     this.server.connect(transport).catch(err => {
-      console.error('连接MCP传输错误:', err);
+      console.error('Failed to connect to MCP transport:', err);
     });
   }
 
   /**
-   * 验证必要的环境变量是否已设置
+   * Validate whether necessary environment variables are set
    */
   private validateEnvironmentVariables(): void {
     const requiredVars = [
@@ -99,7 +99,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       throw new Error('Missing required environment variables');
     }
 
-    // 验证端口号
+    // Validate port numbers
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
     const imapPort = parseInt(process.env.IMAP_PORT || '993');
 
@@ -113,27 +113,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
   }
 
   /**
-   * 注册所有MCP工具
+   * Register all MCP tools
    */
   private registerTools(): void {
-    // 邮件发送相关工具
+    // Mail sending related tools
     this.registerSendingTools();
     
-    // 邮件接收和查询相关工具
+    // Mail receiving and query related tools
     this.registerReceivingTools();
     
-    // 邮件文件夹管理工具
+    // Mail folder management tools
     this.registerFolderTools();
     
-    // 邮件标记工具
+    // Mail flag tools
     this.registerFlagTools();
   }
 
   /**
-   * 注册邮件发送相关工具
+   * Register mail sending related tools
    */
   private registerSendingTools(): void {
-    // 群发邮件工具
+    // Bulk mail sending tool
     this.server.tool(
       "sendBulkMail",
       {
@@ -156,18 +156,18 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (!params.text && !params.html) {
             return {
               content: [
-                { type: "text", text: `邮件内容不能为空，请提供text或html参数。` }
+                { type: "text", text: `Mail content cannot be empty, please provide text or html parameter.` }
               ]
             };
           }
           
-          console.log(`开始群发邮件，收件人数量: ${params.to.length}`);
+          console.log(`Starting bulk mail sending, number of recipients: ${params.to.length}`);
           
           const results = [];
           let successCount = 0;
           let failureCount = 0;
           
-          // 分批发送，每批最多10个收件人
+          // Send in batches, maximum 10 recipients per batch
           const batchSize = 10;
           for (let i = 0; i < params.to.length; i += batchSize) {
             const batch = params.to.slice(i, i + batchSize);
@@ -191,12 +191,12 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
                 failureCount += batch.length;
               }
               
-              // 添加延迟，避免邮件服务器限制
+              // Add delay to avoid mail server restrictions
               if (i + batchSize < params.to.length) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
               }
             } catch (error) {
-              console.error(`发送批次 ${i / batchSize + 1} 时出错:`, error);
+              console.error(`Error sending batch ${i / batchSize + 1}:`, error);
               failureCount += batch.length;
             }
           }
@@ -205,8 +205,8 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             content: [
               { 
                 type: "text", 
-                text: `群发邮件完成。\n成功: ${successCount}个收件人\n失败: ${failureCount}个收件人\n\n${
-                  failureCount > 0 ? '部分邮件发送失败，可能是由于邮件服务器限制或收件人地址无效。' : ''
+                text: `Bulk mail sending completed.\nSuccess: ${successCount} recipients\nFailed: ${failureCount} recipients\n\n${
+                  failureCount > 0 ? 'Some emails failed to send, possibly due to mail server restrictions or invalid recipient addresses.' : ''
                 }`
               }
             ]
@@ -214,7 +214,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `群发邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while sending bulk mail: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
@@ -241,25 +241,25 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       },
       async (params) => {
         try {
-          // 检查内容是否提供
+          // Check if content is provided
           if (!params.text && !params.html) {
             return {
               content: [
-                { type: "text", text: `邮件内容不能为空，请提供text或html参数。` }
+                { type: "text", text: `Mail content cannot be empty, please provide text or html parameter.` }
               ]
             };
           }
           
-          // 如果指定使用HTML但没有提供HTML内容，自动转换
+          // If HTML is specified but no HTML content is provided, automatically convert
           if (params.useHtml && !params.html && params.text) {
-            // 简单转换文本为HTML
+            // Simple conversion of text to HTML
             params.html = params.text
               .split('\n')
               .map((line: string) => `<p>${line}</p>`)
               .join('');
           }
           
-          // 处理收件人信息，确保to字段一定存在
+          // Process recipient information, ensure to field exists
           const to = params.to;
           
           const mailInfo: MailInfo = {
@@ -268,7 +268,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             attachments: params.attachments
           };
           
-          // 处理抄送和密送信息
+          // Process CC and BCC information
           if (params.cc) {
             mailInfo.cc = typeof params.cc === 'string' ? params.cc : params.cc;
           }
@@ -277,7 +277,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             mailInfo.bcc = typeof params.bcc === 'string' ? params.bcc : params.bcc;
           }
           
-          // 设置邮件内容
+          // Set mail content
           if (params.html || (params.useHtml && params.text)) {
             mailInfo.html = params.html || params.text?.split('\n').map((line: string) => `<p>${line}</p>`).join('');
           } else {
@@ -289,27 +289,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
+                { type: "text", text: `Mail sent successfully, message ID: ${result.messageId}\n\nTip: If you need to wait for a reply, you can use the waitForReply tool.` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `邮件发送失败: ${result.error}` }
+                { type: "text", text: `Mail sending failed: ${result.error}` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `发送邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while sending mail: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 发送简单邮件工具（保留原有实现）
+    // Send simple mail tool (keep original implementation)
     this.server.tool(
       "sendSimpleMail",
       {
@@ -328,27 +328,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `简单邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
+                { type: "text", text: `Simple mail sent successfully, message ID: ${result.messageId}\n\nTip: If you need to wait for a reply, you can use the waitForReply tool.` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `简单邮件发送失败: ${result.error}` }
+                { type: "text", text: `Simple mail sending failed: ${result.error}` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `发送简单邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while sending simple mail: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 添加专门的HTML邮件发送工具
+    // Add dedicated HTML mail sending tool
     this.server.tool(
       "sendHtmlMail",
       {
@@ -390,20 +390,20 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (result.success) {
             return {
               content: [
-                { type: "text", text: `HTML邮件发送成功，消息ID: ${result.messageId}\n\n提示：如果需要等待对方回复，可以使用 waitForReply 工具。` }
+                { type: "text", text: `HTML mail sent successfully, message ID: ${result.messageId}\n\nTip: If you need to wait for a reply, you can use the waitForReply tool.` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `HTML邮件发送失败: ${result.error}` }
+                { type: "text", text: `HTML mail sending failed: ${result.error}` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `发送HTML邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while sending HTML mail: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
@@ -412,11 +412,11 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
   }
 
   /**
-   * 注册邮件接收和查询相关工具
+   * Register mail receiving and query related tools
    */
   private registerReceivingTools(): void {
-    // 等待新邮件回复
-    // 此工具用于等待用户的邮件回复。可以多次调用此工具，建议在调用前先检查现有邮件列表。
+    // Wait for new mail reply
+    // This tool is used to wait for user mail replies. This tool can be called multiple times, it is recommended to check the existing mail list before calling.
     this.server.tool(
       "waitForReply",
       {
@@ -427,23 +427,23 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         try {
           const result = await this.mailService.waitForNewReply(folder, timeout);
           
-          // 如果是未读邮件警告
+          // If it's an unread mail warning
           if (result && typeof result === 'object' && 'type' in result && result.type === 'unread_warning') {
-            let warningText = `⚠️ 检测到${result.mails.length}封最近5分钟内的未读邮件。\n`;
-            warningText += `请先处理（阅读或回复）这些邮件，再继续等待新回复：\n\n`;
+            let warningText = `⚠️ Detected ${result.mails.length} unread emails within the last 5 minutes.\n`;
+            warningText += `Please process (read or reply) these emails first, then continue waiting for new replies:\n\n`;
             
             result.mails.forEach((mail, index) => {
               const fromStr = mail.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
-              warningText += `${index + 1}. 主题: ${mail.subject}\n`;
-              warningText += `   发件人: ${fromStr}\n`;
-              warningText += `   时间: ${mail.date.toLocaleString()}\n`;
+              warningText += `${index + 1}. Subject: ${mail.subject}\n`;
+              warningText += `   From: ${fromStr}\n`;
+              warningText += `   Time: ${mail.date.toLocaleString()}\n`;
               warningText += `   UID: ${mail.uid}\n\n`;
             });
             
-            warningText += `提示：\n`;
-            warningText += `1. 使用 markAsRead 工具将邮件标记为已读\n`;
-            warningText += `2. 使用 getEmailDetail 工具查看邮件详情\n`;
-            warningText += `3. 处理完这些邮件后，再次调用 waitForReply 工具等待新回复\n`;
+            warningText += `Tips:\n`;
+            warningText += `1. Use the markAsRead tool to mark emails as read\n`;
+            warningText += `2. Use the getEmailDetail tool to view email details\n`;
+            warningText += `3. After processing these emails, call the waitForReply tool again to wait for new replies\n`;
             
             return {
               content: [
@@ -452,30 +452,30 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             };
           }
           
-          // 如果超时
+          // If timeout
           if (!result) {
             return {
               content: [
-                { type: "text", text: `等待邮件回复超时（${timeout / 1000}秒）` }
+                { type: "text", text: `Waiting for mail reply timeout (${timeout / 1000} seconds)` }
               ]
             };
           }
 
-          // 收到新邮件
-          const email = result as MailItem;  // 添加类型断言
+          // Received new mail
+          const email = result as MailItem;  // Add type assertion
           const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
           const date = email.date.toLocaleString();
-          const status = email.isRead ? '已读' : '未读';
+          const status = email.isRead ? 'Read' : 'Unread';
           const attachmentInfo = email.hasAttachments ? '📎' : '';
           
-          let resultText = `收到新邮件！\n\n`;
-          resultText += `[${status}] ${attachmentInfo} 来自: ${fromStr}\n`;
-          resultText += `主题: ${email.subject}\n`;
-          resultText += `时间: ${date}\n`;
+          let resultText = `Received new mail!\n\n`;
+          resultText += `[${status}] ${attachmentInfo} From: ${fromStr}\n`;
+          resultText += `Subject: ${email.subject}\n`;
+          resultText += `Time: ${date}\n`;
           resultText += `UID: ${email.uid}\n\n`;
           
           if (email.textBody) {
-            resultText += `内容:\n${email.textBody}\n\n`;
+            resultText += `Content:\n${email.textBody}\n\n`;
           }
           
           return {
@@ -486,21 +486,21 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `等待邮件回复时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while waiting for mail reply: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 高级邮件搜索 - 支持多文件夹和复杂条件
+    // Advanced mail search - supports multiple folders and complex conditions
     this.server.tool(
       "searchEmails",
       {
         keywords: z.string().optional(),
         folders: z.array(z.string()).optional(),
-        startDate: z.union([z.date(), z.string().datetime({ message: "startDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
-        endDate: z.union([z.date(), z.string().datetime({ message: "endDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
+        startDate: z.union([z.date(), z.string().datetime({ message: "startDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
+        endDate: z.union([z.date(), z.string().datetime({ message: "endDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
         from: z.string().optional(),
         to: z.string().optional(),
         subject: z.string().optional(),
@@ -510,9 +510,9 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       },
       async (params) => {
         try {
-          console.log(`开始执行高级邮件搜索，关键词: ${params.keywords || '无'}`);
+          console.log(`Starting advanced mail search, keywords: ${params.keywords || 'none'}`);
           
-          // 处理日期字符串
+          // Process date strings
           const startDate = typeof params.startDate === 'string' ? new Date(params.startDate) : params.startDate;
           const endDate = typeof params.endDate === 'string' ? new Date(params.endDate) : params.endDate;
 
@@ -529,45 +529,45 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             includeBody: params.includeBody
           });
           
-          // 转换为人类可读格式
+          // Convert to human readable format
           if (emails.length === 0) {
             return {
               content: [
-                { type: "text", text: `没有找到符合条件的邮件。` }
+                { type: "text", text: `No emails matching the criteria found.` }
               ]
             };
           }
           
           const searchTerms = [];
-          if (params.keywords) searchTerms.push(`关键词"${params.keywords}"`);
-          if (params.from) searchTerms.push(`发件人包含"${params.from}"`);
-          if (params.to) searchTerms.push(`收件人包含"${params.to}"`);
-          if (params.subject) searchTerms.push(`主题包含"${params.subject}"`);
-          if (startDate) searchTerms.push(`开始日期${startDate.toLocaleDateString()}`);
-          if (endDate) searchTerms.push(`结束日期${endDate.toLocaleDateString()}`);
-          if (params.hasAttachment) searchTerms.push(`包含附件`);
+          if (params.keywords) searchTerms.push(`keyword "${params.keywords}"`);
+          if (params.from) searchTerms.push(`from contains "${params.from}"`);
+          if (params.to) searchTerms.push(`to contains "${params.to}"`);
+          if (params.subject) searchTerms.push(`subject contains "${params.subject}"`);
+          if (startDate) searchTerms.push(`start date ${startDate.toLocaleDateString()}`);
+          if (endDate) searchTerms.push(`end date ${endDate.toLocaleDateString()}`);
+          if (params.hasAttachment) searchTerms.push(`has attachment`);
           
           const searchDescription = searchTerms.length > 0 
-            ? `搜索条件: ${searchTerms.join(', ')}` 
-            : '所有邮件';
+            ? `Search criteria: ${searchTerms.join(', ')}` 
+            : 'All emails';
           
-          let resultText = `🔍 邮件搜索结果 (${emails.length}封邮件)\n${searchDescription}\n\n`;
+          let resultText = `🔍 Mail search results (${emails.length} emails)\n${searchDescription}\n\n`;
           
           emails.forEach((email, index) => {
             const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
             const date = email.date.toLocaleString();
-            const status = email.isRead ? '已读' : '未读';
-            const attachmentInfo = email.hasAttachments ? '有' : '';
+            const status = email.isRead ? 'Read' : 'Unread';
+            const attachmentInfo = email.hasAttachments ? 'Yes' : '';
             const folder = email.folder;
             
-            resultText += `${index + 1}. [${status}] ${attachmentInfo} 来自: ${fromStr}\n`;
-            resultText += `   主题: ${email.subject}\n`;
-            resultText += `   时间: ${date}\n`;
-            resultText += `   文件夹: ${folder}\n`;
+            resultText += `${index + 1}. [${status}] ${attachmentInfo} From: ${fromStr}\n`;
+            resultText += `   Subject: ${email.subject}\n`;
+            resultText += `   Time: ${date}\n`;
+            resultText += `   Folder: ${folder}\n`;
             resultText += `   UID: ${email.uid}\n\n`;
           });
           
-          resultText += `使用 getEmailDetail 工具并提供 UID 和 folder 可以查看邮件详情。`;
+          resultText += `Use the getEmailDetail tool with UID and folder to view email details.`;
           
           return {
             content: [
@@ -577,14 +577,14 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `搜索邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while searching emails: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 获取收件箱邮件列表
+    // Get inbox mail list
     this.server.tool(
       "listEmails",
       {
@@ -594,13 +594,13 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         from: z.string().optional(),
         to: z.string().optional(),
         subject: z.string().optional(),
-        fromDate: z.union([z.date(), z.string().datetime({ message: "fromDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
-        toDate: z.union([z.date(), z.string().datetime({ message: "toDate 必须是有效的 ISO 8601 日期时间字符串或 Date 对象" })]).optional(),
+        fromDate: z.union([z.date(), z.string().datetime({ message: "fromDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
+        toDate: z.union([z.date(), z.string().datetime({ message: "toDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
         hasAttachments: z.boolean().optional()
       },
       async (params) => {
         try {
-          // 处理日期字符串
+          // Process date strings
           const fromDate = typeof params.fromDate === 'string' ? new Date(params.fromDate) : params.fromDate;
           const toDate = typeof params.toDate === 'string' ? new Date(params.toDate) : params.toDate;
           
@@ -618,30 +618,30 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
 
           const emails = await this.mailService.searchMails(options);
           
-          // 转换为人类可读格式
+          // Convert to human readable format
           if (emails.length === 0) {
             return {
               content: [
-                { type: "text", text: `在${params.folder}文件夹中没有找到符合条件的邮件。` }
+                { type: "text", text: `No emails matching the criteria found in ${params.folder} folder.` }
               ]
             };
           }
           
-          let resultText = `在${params.folder}文件夹中找到了${emails.length}封邮件：\n\n`;
+          let resultText = `Found ${emails.length} emails in ${params.folder} folder:\n\n`;
           
           emails.forEach((email, index) => {
             const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
             const date = email.date.toLocaleString();
-            const status = email.isRead ? '已读' : '未读';
+            const status = email.isRead ? 'Read' : 'Unread';
             const attachmentInfo = email.hasAttachments ? '📎' : '';
             
-            resultText += `${index + 1}. [${status}] ${attachmentInfo} 来自: ${fromStr}\n`;
-            resultText += `   主题: ${email.subject}\n`;
-            resultText += `   时间: ${date}\n`;
+            resultText += `${index + 1}. [${status}] ${attachmentInfo} From: ${fromStr}\n`;
+            resultText += `   Subject: ${email.subject}\n`;
+            resultText += `   Time: ${date}\n`;
             resultText += `   UID: ${email.uid}\n\n`;
           });
           
-          resultText += `使用 getEmailDetail 工具并提供 UID 可以查看邮件详情。`;
+          resultText += `Use the getEmailDetail tool with UID to view email details.`;
           
           return {
             content: [
@@ -651,14 +651,14 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `获取邮件列表时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while getting mail list: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 获取通讯录
+    // Get contacts
     this.server.tool(
       "getContacts",
       {
@@ -674,11 +674,11 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           
           const contacts = result.contacts;
           
-          // 转换为人类可读格式
+          // Convert to human readable format
           if (contacts.length === 0) {
             const message = params.searchTerm 
-              ? `没有找到包含"${params.searchTerm}"的联系人。` 
-              : `没有找到任何联系人。`;
+              ? `No contacts found containing "${params.searchTerm}".` 
+              : `No contacts found.`;
             
             return {
               content: [
@@ -688,19 +688,19 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           }
           
           const header = params.searchTerm 
-            ? `📋 搜索结果: 包含"${params.searchTerm}"的联系人 (${contacts.length}个):\n\n` 
-            : `📋 联系人列表 (${contacts.length}个):\n\n`;
+            ? `📋 Search results: Contacts containing "${params.searchTerm}" (${contacts.length}):\n\n` 
+            : `📋 Contact list (${contacts.length}):\n\n`;
           
           let resultText = header;
           
           contacts.forEach((contact, index) => {
-            const name = contact.name || '(无名称)';
+            const name = contact.name || '(No name)';
             const frequency = contact.frequency;
-            const lastContact = contact.lastContact ? contact.lastContact.toLocaleDateString() : '未知';
+            const lastContact = contact.lastContact ? contact.lastContact.toLocaleDateString() : 'Unknown';
             
             resultText += `${index + 1}. ${name} <${contact.email}>\n`;
-            resultText += `   邮件频率: ${frequency}次\n`;
-            resultText += `   最后联系: ${lastContact}\n\n`;
+            resultText += `   Mail frequency: ${frequency} times\n`;
+            resultText += `   Last contact: ${lastContact}\n\n`;
           });
           
           return {
@@ -711,14 +711,14 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `获取联系人时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while getting contacts: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 获取邮件详情
+    // Get email details
     this.server.tool(
       "getEmailDetail",
       {
@@ -731,32 +731,32 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       },
       async ({ uid, folder, contentRange }) => {
         try {
-          // 对于QQ邮箱的特殊处理，先尝试获取邮件详情
+          // Special handling for QQ mail, first try to get email details
           const numericUid = Number(uid);
           let email = await this.mailService.getMailDetail(numericUid, folder);
           
-          // 如果正常获取失败，尝试通过搜索来获取指定UID的邮件
+          // If normal retrieval fails, try to get the specified UID email through search
           if (!email) {
-            console.log(`通过常规方法获取邮件详情失败，尝试使用搜索方法获取UID为${numericUid}的邮件`);
+            console.log(`Failed to get email details through normal method, trying to get email with UID ${numericUid} through search method`);
             const searchResults = await this.mailService.searchMails({ 
               folder: folder,
-              limit: 50 // 搜索更多邮件以提高找到目标的可能性
+              limit: 50 // Search more emails to increase the chance of finding the target
             });
             
-            // 从搜索结果中找到指定UID的邮件
+            // Find the specified UID email from search results
             const foundEmail = searchResults.find(e => e.uid === numericUid);
             if (foundEmail) {
-              console.log(`在搜索结果中找到了UID为${numericUid}的邮件`);
+              console.log(`Found email with UID ${numericUid} in search results`);
               email = foundEmail;
               
-              // 尝试获取邮件正文（如果没有）
+              // Try to get email body (if not present)
               if (!email.textBody && !email.htmlBody) {
-                console.log(`邮件没有正文内容，尝试单独获取正文`);
+                console.log(`Email has no body content, trying to get body separately`);
                 try {
-                  // 这里可以添加额外的尝试获取正文的逻辑
+                  // Additional logic to try to get body can be added here
                   // ...
                 } catch (e) {
-                  console.error('获取邮件正文时出错:', e);
+                  console.error('Error getting email body:', e);
                 }
               }
             }
@@ -765,70 +765,70 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (!email) {
             return {
               content: [
-                { type: "text", text: `未找到UID为${numericUid}的邮件` }
+                { type: "text", text: `Email with UID ${numericUid} not found` }
               ]
             };
           }
           
-          // 转换为人类可读格式
+          // Convert to human readable format
           const fromStr = email.from.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(', ');
           const toStr = email.to.map(t => t.name ? `${t.name} <${t.address}>` : t.address).join(', ');
           const ccStr = email.cc ? email.cc.map(c => c.name ? `${c.name} <${c.address}>` : c.address).join(', ') : '';
           const date = email.date.toLocaleString();
-          const status = email.isRead ? '已读' : '未读';
+          const status = email.isRead ? 'Read' : 'Unread';
           
-          let resultText = `📧 邮件详情 (UID: ${email.uid})\n\n`;
-          resultText += `主题: ${email.subject}\n`;
-          resultText += `发件人: ${fromStr}\n`;
-          resultText += `收件人: ${toStr}\n`;
-          if (ccStr) resultText += `抄送: ${ccStr}\n`;
-          resultText += `日期: ${date}\n`;
-          resultText += `状态: ${status}\n`;
-          resultText += `文件夹: ${email.folder}\n`;
+          let resultText = `📧 Email details (UID: ${email.uid})\n\n`;
+          resultText += `Subject: ${email.subject}\n`;
+          resultText += `From: ${fromStr}\n`;
+          resultText += `To: ${toStr}\n`;
+          if (ccStr) resultText += `CC: ${ccStr}\n`;
+          resultText += `Date: ${date}\n`;
+          resultText += `Status: ${status}\n`;
+          resultText += `Folder: ${email.folder}\n`;
           
           if (email.hasAttachments && email.attachments && email.attachments.length > 0) {
-            resultText += `\n📎 附件 (${email.attachments.length}个):\n`;
+            resultText += `\n📎 Attachments (${email.attachments.length}):\n`;
             email.attachments.forEach((att, index) => {
               const sizeInKB = Math.round(att.size / 1024);
               resultText += `${index + 1}. ${att.filename} (${sizeInKB} KB, ${att.contentType})\n`;
             });
           }
           
-          // 获取邮件内容
+          // Get email content
           let content = '';
           if (email.textBody) {
             content = email.textBody;
           } else if (email.htmlBody) {
-            // 简单的HTML转文本处理
-            content = '(HTML内容，显示纯文本版本)\n\n' + 
+            // Simple HTML to text processing
+            content = '(HTML content, showing plain text version)\n\n' + 
               email.htmlBody
                 .replace(/<br\s*\/?>/gi, '\n')
                 .replace(/<\/p>/gi, '\n\n')
                 .replace(/<[^>]*>/g, '');
           } else {
-            content = '(邮件没有文本内容或内容无法获取)\n\n' +
-              '可能原因：\n' +
-              '1. QQ邮箱IMAP访问限制\n' +
-              '2. 邮件内容格式特殊\n' +
-              '建议直接在QQ邮箱网页或客户端查看完整内容';
+            content = '(Email has no text content or content cannot be retrieved)\n\n' +
+              'Possible reasons:\n' +
+              '1. QQ mail IMAP access restrictions\n' +
+              '2. Special mail content format\n' +
+              'It is recommended to view the full content directly in QQ mail web or client';
           }
           
-          // 计算内容总长度
+          // Calculate total content length
           const totalLength = content.length;
           
-          // 设置默认范围
+          // Set default range
           const start = contentRange?.start || 0;
           const end = Math.min(contentRange?.end || 2000, totalLength);
           
-          // 根据范围截取内容
+          // Extract content based on range
           const selectedContent = content.substring(start, end);
           
-          resultText += `\n📄 内容 (${start+1}-${end}/${totalLength}字符):\n\n`;
+          resultText += `\n📄 Content (${start+1}-${end}/${totalLength} characters):\n\n`;
           resultText += selectedContent;
           
-          // 如果有更多内容，添加提示
+          // If there is more content, add prompt
           if (end < totalLength) {
-            resultText += `\n\n[...]\n\n(内容过长，仅显示前${end}个字符。使用contentRange参数可查看更多内容，例如查看${end+1}-${Math.min(end+2000, totalLength)}范围：contentRange.start=${end}, contentRange.end=${Math.min(end+2000, totalLength)})`;
+            resultText += `\n\n[...]\n\n(Content is too long, only showing first ${end} characters. Use contentRange parameter to view more content, for example view ${end+1}-${Math.min(end+2000, totalLength)} range: contentRange.start=${end}, contentRange.end=${Math.min(end+2000, totalLength)})`;
           }
           
           return {
@@ -839,14 +839,14 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `获取邮件详情时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while getting email details: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 删除邮件
+    // Delete email
     this.server.tool(
       "deleteEmail",
       {
@@ -861,27 +861,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${numericUid})已从${folder}文件夹中删除` }
+                { type: "text", text: `Email (UID: ${numericUid}) has been deleted from ${folder} folder` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `删除邮件(UID: ${numericUid})失败` }
+                { type: "text", text: `Failed to delete email (UID: ${numericUid})` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `删除邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while deleting email: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 移动邮件到其他文件夹
+    // Move email to another folder
     this.server.tool(
       "moveEmail",
       {
@@ -897,27 +897,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${numericUid})已成功从"${sourceFolder}"移动到"${targetFolder}"文件夹` }
+                { type: "text", text: `Email (UID: ${numericUid}) has been successfully moved from "${sourceFolder}" to "${targetFolder}" folder` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `移动邮件(UID: ${numericUid})失败` }
+                { type: "text", text: `Failed to move email (UID: ${numericUid})` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `移动邮件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while moving email: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 添加获取附件工具
+    // Add get attachment tool
     this.server.tool(
       "getAttachment",
       {
@@ -937,66 +937,66 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (!attachment) {
             return {
               content: [
-                { type: "text", text: `未找到UID为${params.uid}的邮件的第${params.attachmentIndex}个附件` }
+                { type: "text", text: `Attachment ${params.attachmentIndex} of email with UID ${params.uid} not found` }
               ]
             };
           }
           
-          // 根据是否保存到文件处理附件
+          // Process attachment based on whether to save to file
           if (params.saveToFile) {
-            // 创建附件保存目录
+            // Create attachment save directory
             const downloadDir = path.join(process.cwd(), 'downloads');
             if (!fs.existsSync(downloadDir)) {
               fs.mkdirSync(downloadDir, { recursive: true });
             }
             
-            // 生成安全的文件名（去除非法字符）
+            // Generate safe filename (remove illegal characters)
             const safeFilename = attachment.filename.replace(/[/\\?%*:|"<>]/g, '-');
             const filePath = path.join(downloadDir, safeFilename);
             
-            // 写入文件
+            // Write to file
             fs.writeFileSync(filePath, attachment.content);
             
             return {
               content: [
                 { 
                   type: "text", 
-                  text: `附件 "${attachment.filename}" 已下载保存至 ${filePath}\n类型: ${attachment.contentType}\n大小: ${Math.round(attachment.content.length / 1024)} KB` 
+                  text: `Attachment "${attachment.filename}" has been downloaded and saved to ${filePath}\nType: ${attachment.contentType}\nSize: ${Math.round(attachment.content.length / 1024)} KB` 
                 }
               ]
             };
           } else {
-            // 根据内容类型处理内容
+            // Process content based on content type
             if (attachment.contentType.startsWith('text/') || 
                 attachment.contentType === 'application/json') {
-              // 文本文件显示内容
+              // Display content for text files
               const textContent = attachment.content.toString('utf-8');
               return {
                 content: [
                   { 
                     type: "text", 
-                    text: `📎 附件 "${attachment.filename}" (${attachment.contentType})\n\n${textContent.substring(0, 10000)}${textContent.length > 10000 ? '\n\n[内容过长，已截断]' : ''}` 
+                    text: `📎 Attachment "${attachment.filename}" (${attachment.contentType})\n\n${textContent.substring(0, 10000)}${textContent.length > 10000 ? '\n\n[Content too long, truncated]' : ''}` 
                   }
                 ]
               };
             } else if (attachment.contentType.startsWith('image/')) {
-              // 图片文件提供Base64编码
+              // Provide Base64 encoding for image files
               const base64Content = attachment.content.toString('base64');
               return {
                 content: [
                   { 
                     type: "text", 
-                    text: `📎 图片附件 "${attachment.filename}" (${attachment.contentType})\n大小: ${Math.round(attachment.content.length / 1024)} KB\n\n[图片内容已转为Base64编码，可用于在线预览]` 
+                    text: `📎 Image attachment "${attachment.filename}" (${attachment.contentType})\nSize: ${Math.round(attachment.content.length / 1024)} KB\n\n[Image content has been converted to Base64 encoding, can be used for online preview]` 
                   }
                 ]
               };
             } else {
-              // 其他二进制文件
+              // Other binary files
               return {
                 content: [
                   { 
                     type: "text", 
-                    text: `📎 二进制附件 "${attachment.filename}" (${attachment.contentType})\n大小: ${Math.round(attachment.content.length / 1024)} KB\n\n[二进制内容无法直接显示]` 
+                    text: `📎 Binary attachment "${attachment.filename}" (${attachment.contentType})\nSize: ${Math.round(attachment.content.length / 1024)} KB\n\n[Binary content cannot be displayed directly]` 
                   }
                 ]
               };
@@ -1005,7 +1005,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `获取附件时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while getting attachment: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
@@ -1014,10 +1014,10 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
   }
 
   /**
-   * 注册文件夹管理工具
+   * Register folder management tools
    */
   private registerFolderTools(): void {
-    // 获取所有邮件文件夹
+    // Get all mail folders
     this.server.tool(
       "listFolders",
       { random_string: z.string().optional() },
@@ -1028,12 +1028,12 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (folders.length === 0) {
             return {
               content: [
-                { type: "text", text: "没有找到邮件文件夹。" }
+                { type: "text", text: "No mail folders found." }
               ]
             };
           }
           
-          let resultText = `📁 邮件文件夹列表 (${folders.length}个):\n\n`;
+          let resultText = `📁 Mail folder list (${folders.length}):\n\n`;
           folders.forEach((folder, index) => {
             resultText += `${index + 1}. ${folder}\n`;
           });
@@ -1046,7 +1046,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `获取邮件文件夹列表时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while getting mail folder list: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
@@ -1055,10 +1055,10 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
   }
 
   /**
-   * 注册邮件标记工具
+   * Register mail flag tools
    */
   private registerFlagTools(): void {
-    // 批量将邮件标记为已读
+    // Mark multiple emails as read
     this.server.tool(
       "markMultipleAsRead",
       {
@@ -1073,27 +1073,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `已将 ${uids.length} 封邮件标记为已读` }
+                { type: "text", text: `Marked ${uids.length} emails as read` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `批量标记邮件为已读失败` }
+                { type: "text", text: `Failed to mark multiple emails as read` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `批量标记邮件为已读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while marking multiple emails as read: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 批量将邮件标记为未读
+    // Mark multiple emails as unread
     this.server.tool(
       "markMultipleAsUnread",
       {
@@ -1108,27 +1108,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `已将 ${uids.length} 封邮件标记为未读` }
+                { type: "text", text: `Marked ${uids.length} emails as unread` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `批量标记邮件为未读失败` }
+                { type: "text", text: `Failed to mark multiple emails as unread` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `批量标记邮件为未读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while marking multiple emails as unread: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 将邮件标记为已读
+    // Mark email as read
     this.server.tool(
       "markAsRead",
       {
@@ -1143,27 +1143,27 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${uid})已标记为已读` }
+                { type: "text", text: `Email (UID: ${uid}) has been marked as read` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `标记邮件(UID: ${uid})为已读失败` }
+                { type: "text", text: `Failed to mark email (UID: ${uid}) as read` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `标记邮件为已读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while marking email as read: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
       }
     );
 
-    // 将邮件标记为未读
+    // Mark email as unread
     this.server.tool(
       "markAsUnread",
       {
@@ -1178,20 +1178,20 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           if (success) {
             return {
               content: [
-                { type: "text", text: `邮件(UID: ${uid})已标记为未读` }
+                { type: "text", text: `Email (UID: ${uid}) has been marked as unread` }
               ]
             };
           } else {
             return {
               content: [
-                { type: "text", text: `标记邮件(UID: ${uid})为未读失败` }
+                { type: "text", text: `Failed to mark email (UID: ${uid}) as unread` }
               ]
             };
           }
         } catch (error) {
           return {
             content: [
-              { type: "text", text: `标记邮件为未读时发生错误: ${error instanceof Error ? error.message : String(error)}` }
+              { type: "text", text: `Error occurred while marking email as unread: ${error instanceof Error ? error.message : String(error)}` }
             ]
           };
         }
@@ -1200,7 +1200,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
   }
 
   /**
-   * 关闭所有连接
+   * Close all connections
    */
   async close(): Promise<void> {
     await this.mailService.close();

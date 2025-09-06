@@ -4,7 +4,7 @@ import { simpleParser, ParsedMail, AddressObject } from 'mailparser';
 import { Readable } from 'stream';
 import { promisify } from 'util';
 
-// 邮件配置接口
+// Mail configuration interface
 export interface MailConfig {
   smtp: {
     host: string;
@@ -30,7 +30,7 @@ export interface MailConfig {
   }
 }
 
-// 邮件信息接口
+// Mail information interface
 export interface MailInfo {
   to: string | string[];
   cc?: string | string[];
@@ -45,7 +45,7 @@ export interface MailInfo {
   }>;
 }
 
-// 邮件查询选项
+// Mail search options
 export interface MailSearchOptions {
   folder?: string;
   readStatus?: 'read' | 'unread' | 'all';
@@ -58,7 +58,7 @@ export interface MailSearchOptions {
   limit?: number;
 }
 
-// 邮件项
+// Mail item
 export interface MailItem {
   id: string;
   uid: number;
@@ -77,7 +77,7 @@ export interface MailItem {
   folder: string;
 }
 
-// 地址信息接口
+// Email address interface
 interface EmailAddress {
   name?: string;
   address: string;
@@ -92,7 +92,7 @@ export class MailService {
   constructor(config: MailConfig) {
     this.config = config;
 
-    // 创建SMTP传输器
+    // Create SMTP transporter
     this.smtpTransporter = nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
@@ -103,7 +103,7 @@ export class MailService {
       },
     });
 
-    // 创建IMAP客户端
+    // Create IMAP client
     this.imapClient = new IMAP({
       user: config.imap.auth.user,
       password: config.imap.auth.pass,
@@ -113,15 +113,15 @@ export class MailService {
       tlsOptions: { rejectUnauthorized: false },
     });
 
-    // 监听IMAP连接错误
+    // Listen for IMAP connection errors
     this.imapClient.on('error', (err: Error) => {
-      console.error('IMAP错误:', err);
+      console.error('IMAP error:', err);
       this.isImapConnected = false;
     });
   }
 
   /**
-   * 连接到IMAP服务器
+   * Connect to IMAP server
    */
   async connectImap(): Promise<void> {
     if (this.isImapConnected) return;
@@ -141,7 +141,7 @@ export class MailService {
   }
 
   /**
-   * 关闭IMAP连接
+   * Close IMAP connection
    */
   closeImap(): void {
     if (this.isImapConnected) {
@@ -151,7 +151,7 @@ export class MailService {
   }
 
   /**
-   * 发送邮件
+   * Send mail
    */
   async sendMail(mailInfo: MailInfo): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
@@ -172,13 +172,13 @@ export class MailService {
       const info = await this.smtpTransporter.sendMail(mailOptions);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error('发送邮件错误:', error);
+      console.error('Send mail error:', error);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
   /**
-   * 获取邮箱文件夹列表
+   * Get mailbox folder list
    */
   async getFolders(): Promise<string[]> {
     await this.connectImap();
@@ -192,7 +192,7 @@ export class MailService {
 
         const folderNames: string[] = [];
         
-        // 递归遍历所有邮件文件夹
+        // Recursively traverse all mail folders
         const processBoxes = (boxes: IMAP.MailBoxes, prefix = '') => {
           for (const name in boxes) {
             folderNames.push(prefix + name);
@@ -209,7 +209,7 @@ export class MailService {
   }
 
   /**
-   * 搜索邮件
+   * Search mails
    */
   async searchMails(options: MailSearchOptions = {}): Promise<MailItem[]> {
     await this.connectImap();
@@ -224,7 +224,7 @@ export class MailService {
           return;
         }
 
-        // 构建搜索条件
+        // Build search criteria
         const criteria: any[] = [];
 
         if (options.readStatus === 'read') {
@@ -257,7 +257,7 @@ export class MailService {
           criteria.push('ALL');
         }
 
-        // 执行搜索
+        // Execute search
         this.imapClient.search(criteria, (err, uids) => {
           if (err) {
             reject(err);
@@ -269,10 +269,10 @@ export class MailService {
             return;
           }
 
-          // 限制结果数量
+          // Limit result count
           const limitedUids = uids.slice(-Math.min(limit, uids.length));
 
-          // 获取邮件详情
+          // Get mail details
           const fetch = this.imapClient.fetch(limitedUids, {
             bodies: ['HEADER', 'TEXT'],
             struct: true,
@@ -331,7 +331,7 @@ export class MailService {
                     }));
                     message.hasAttachments = parsed.attachments.length > 0;
                   }).catch(err => {
-                    console.error('解析邮件内容错误:', err);
+                    console.error('Parse mail content error:', err);
                   });
                 }
               });
@@ -344,7 +344,7 @@ export class MailService {
               message.isRead = attrs.flags.includes('\\Seen');
               message.size = attrs.size || 0;
               
-              // 检查是否有附件
+              // Check if there are attachments
               if (attrs.struct) {
                 message.hasAttachments = this.checkHasAttachments(attrs.struct);
               }
@@ -368,12 +368,12 @@ export class MailService {
   }
 
   /**
-   * 获取邮件详情
+   * Get mail details
    */
   async getMailDetail(uid: number | string, folder: string = 'INBOX'): Promise<MailItem | null> {
     await this.connectImap();
 
-    // 确保 uid 为数字类型
+    // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
@@ -394,10 +394,10 @@ export class MailService {
         let bodyParsed = false;
         let endReceived = false;
 
-        // 检查是否所有处理都已完成并可以返回结果
+        // Check if all processing is completed and can return result
         const checkAndResolve = () => {
           if (bodyParsed && endReceived) {
-            // 如果有属性数据但mailItem还没设置上，则现在设置
+            // If there is attribute data but mailItem hasn't been set yet, set it now
             if (attributes && mailItem) {
               mailItem.flags = attributes.flags;
               mailItem.isRead = attributes.flags.includes('\\Seen');
@@ -409,20 +409,20 @@ export class MailService {
 
         fetch.on('message', (msg) => {
           msg.on('body', (stream) => {
-            // 创建一个可读流缓冲区
+            // Create a readable stream buffer
             let buffer = '';
             stream.on('data', (chunk) => {
               buffer += chunk.toString('utf8');
             });
 
             stream.once('end', () => {
-              // 使用simpleParser解析邮件内容
+              // Use simpleParser to parse mail content
               const readable = new Readable();
               readable.push(buffer);
               readable.push(null);
 
               simpleParser(readable).then((parsed: ParsedMail) => {
-                // 处理发件人信息
+                // Process sender information
                 const from: EmailAddress[] = [];
                 if (parsed.from && 'value' in parsed.from) {
                   from.push(...(parsed.from.value.map(addr => ({
@@ -431,7 +431,7 @@ export class MailService {
                   }))));
                 }
 
-                // 处理收件人信息
+                // Process recipient information
                 const to: EmailAddress[] = [];
                 if (parsed.to && 'value' in parsed.to) {
                   to.push(...(parsed.to.value.map(addr => ({
@@ -440,7 +440,7 @@ export class MailService {
                   }))));
                 }
 
-                // 处理抄送人信息
+                // Process CC information
                 const cc: EmailAddress[] = [];
                 if (parsed.cc && 'value' in parsed.cc) {
                   cc.push(...(parsed.cc.value.map(addr => ({
@@ -457,7 +457,7 @@ export class MailService {
                   to,
                   cc: cc.length > 0 ? cc : undefined,
                   date: parsed.date || new Date(),
-                  isRead: false, // 将通过attributes更新
+                  isRead: false, // Will be updated via attributes
                   hasAttachments: parsed.attachments.length > 0,
                   attachments: parsed.attachments.map(att => ({
                     filename: att.filename || 'unknown',
@@ -466,11 +466,11 @@ export class MailService {
                   })),
                   textBody: parsed.text || undefined,
                   htmlBody: parsed.html || undefined,
-                  size: 0, // 将通过attributes更新
+                  size: 0, // Will be updated via attributes
                   folder,
                 };
 
-                // 如果已经接收到属性，现在应用它们
+                // If attributes have been received, apply them now
                 if (attributes) {
                   mailItem.flags = attributes.flags;
                   mailItem.isRead = attributes.flags.includes('\\Seen');
@@ -480,7 +480,7 @@ export class MailService {
                 bodyParsed = true;
                 checkAndResolve();
               }).catch(err => {
-                console.error('解析邮件详情错误:', err);
+                console.error('Parse mail details error:', err);
                 reject(err);
               });
             });
@@ -502,9 +502,9 @@ export class MailService {
 
         fetch.once('end', () => {
           endReceived = true;
-          // 如果邮件没有内容，或者处理过程中出现问题，尝试确保至少返回空结果
+          // If mail has no content, or if there are issues during processing, try to ensure at least an empty result is returned
           if (!bodyParsed && !mailItem) {
-            console.log(`没有找到UID为${numericUid}的邮件或邮件内容为空`);
+            console.log(`No mail found with UID ${numericUid} or mail content is empty`);
           }
           checkAndResolve();
         });
@@ -513,12 +513,12 @@ export class MailService {
   }
 
   /**
-   * 将邮件标记为已读
+   * Mark mail as read
    */
   async markAsRead(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
     
-    // 确保 uid 为数字类型
+    // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
@@ -540,12 +540,12 @@ export class MailService {
   }
 
   /**
-   * 将邮件标记为未读
+   * Mark mail as unread
    */
   async markAsUnread(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
     
-    // 确保 uid 为数字类型
+    // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
@@ -567,12 +567,12 @@ export class MailService {
   }
 
   /**
-   * 删除邮件
+   * Delete mail
    */
   async deleteMail(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
     
-    // 确保 uid 为数字类型
+    // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
@@ -601,12 +601,12 @@ export class MailService {
   }
 
   /**
-   * 移动邮件到其他文件夹
+   * Move mail to other folder
    */
   async moveMail(uid: number | string, sourceFolder: string, targetFolder: string): Promise<boolean> {
     await this.connectImap();
     
-    // 确保 uid 为数字类型
+    // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
@@ -628,14 +628,14 @@ export class MailService {
   }
 
   /**
-   * 关闭所有连接
+   * Close all connections
    */
   async close(): Promise<void> {
     this.closeImap();
     await promisify(this.smtpTransporter.close.bind(this.smtpTransporter))();
   }
 
-  // 辅助方法：解析地址列表
+  // Helper method: parse address list
   private parseAddressList(addresses?: string[]): EmailAddress[] {
     if (!addresses || addresses.length === 0) return [];
     
@@ -649,7 +649,7 @@ export class MailService {
     });
   }
 
-  // 辅助方法：检查是否有附件
+  // Helper method: check if there are attachments
   private checkHasAttachments(struct: any[]): boolean {
     if (!struct || !Array.isArray(struct)) return false;
     
@@ -669,27 +669,27 @@ export class MailService {
   }
 
   /**
-   * 高级搜索邮件 - 支持多个文件夹和更复杂的过滤条件
+   * Advanced search mails - support multiple folders and more complex filter conditions
    */
   async advancedSearchMails(options: {
-    folders?: string[];        // 要搜索的文件夹列表，默认为INBOX
-    keywords?: string;         // 全文搜索关键词
-    startDate?: Date;          // 开始日期
-    endDate?: Date;            // 结束日期
-    from?: string;             // 发件人
-    to?: string;               // 收件人
-    subject?: string;          // 主题
-    hasAttachment?: boolean;   // 是否有附件
-    maxResults?: number;       // 最大结果数
-    includeBody?: boolean;     // 是否包含邮件正文
+    folders?: string[];        // List of folders to search, defaults to INBOX
+    keywords?: string;         // Full-text search keywords
+    startDate?: Date;          // Start date
+    endDate?: Date;            // End date
+    from?: string;             // Sender
+    to?: string;               // Recipient
+    subject?: string;          // Subject
+    hasAttachment?: boolean;   // Whether it has attachments
+    maxResults?: number;       // Maximum number of results
+    includeBody?: boolean;     // Whether to include email body
   }): Promise<MailItem[]> {
     const allResults: MailItem[] = [];
     const folders = options.folders || ['INBOX'];
     const maxResults = options.maxResults || 100;
     
-    console.log(`执行高级搜索，文件夹: ${folders.join(', ')}, 关键词: ${options.keywords || '无'}`);
+    console.log(`Performing advanced search, folders: ${folders.join(', ')}, keywords: ${options.keywords || 'none'}`);
     
-    // 对每个文件夹执行搜索
+    // Search each folder
     for (const folder of folders) {
       if (allResults.length >= maxResults) break;
       
@@ -706,11 +706,11 @@ export class MailService {
           limit: maxResults - allResults.length
         });
         
-        // 如果包含关键词，执行全文匹配
+        // If includes keywords, perform full-text matching
         if (options.keywords && options.keywords.trim() !== '') {
           const keywordLower = options.keywords.toLowerCase();
           const filteredResults = folderResults.filter(mail => {
-            // 在主题、发件人、收件人中搜索
+            // Search in subject, sender, recipient
             const subjectMatch = mail.subject.toLowerCase().includes(keywordLower);
             const fromMatch = mail.from.some(f => 
               (f.name?.toLowerCase() || '').includes(keywordLower) || 
@@ -721,7 +721,7 @@ export class MailService {
               t.address.toLowerCase().includes(keywordLower)
             );
             
-            // 如果需要在正文中搜索，可能需要额外获取邮件详情
+            // If need to search in body, may need to get additional mail details
             let bodyMatch = false;
             if (options.includeBody) {
               bodyMatch = (mail.textBody?.toLowerCase() || '').includes(keywordLower) ||
@@ -736,37 +736,37 @@ export class MailService {
           allResults.push(...folderResults);
         }
       } catch (error) {
-        console.error(`搜索文件夹 ${folder} 时出错:`, error);
-        // 继续搜索其他文件夹
+        console.error(`Error searching folder ${folder}:`, error);
+        // Continue searching other folders
       }
     }
     
-    // 按日期降序排序（最新的邮件优先）
+    // Sort by date in descending order (newest emails first)
     allResults.sort((a, b) => b.date.getTime() - a.date.getTime());
     
-    // 限制结果数量
+    // Limit result count
     return allResults.slice(0, maxResults);
   }
   
   /**
-   * 获取通讯录 - 基于邮件历史提取联系人信息
+   * Get address book - extract contact information based on email history
    */
   async getContacts(options: {
-    maxResults?: number;   // 最大结果数
-    includeGroups?: boolean; // 是否包含分组
-    searchTerm?: string;   // 搜索词
+    maxResults?: number;   // Maximum number of results
+    includeGroups?: boolean; // Whether to include groups
+    searchTerm?: string;   // Search term
   } = {}): Promise<{
     contacts: {
       name?: string;
       email: string;
-      frequency: number;   // 联系频率
-      lastContact?: Date;  // 最后联系时间
+      frequency: number;   // Contact frequency
+      lastContact?: Date;  // Last contact time
     }[];
   }> {
     const maxResults = options.maxResults || 100;
     const searchTerm = options.searchTerm?.toLowerCase() || '';
     
-    // 从最近的邮件中提取联系人
+    // Extract contacts from recent emails
     const contactMap = new Map<string, {
       name?: string;
       email: string;
@@ -774,21 +774,21 @@ export class MailService {
       lastContact?: Date;
     }>();
     
-    // 从收件箱和已发送邮件中收集联系人
+    // Collect contacts from inbox and sent mails
     const folders = ['INBOX', 'Sent Messages'];
     
     for (const folder of folders) {
       try {
         const emails = await this.searchMails({
           folder,
-          limit: 200, // 搜索足够多的邮件以收集联系人
+          limit: 200, // Search enough emails to collect contacts
         });
         
         emails.forEach(email => {
-          // 处理收件箱中的发件人
+          // Process senders in inbox
           if (folder === 'INBOX') {
             email.from.forEach(sender => {
-              if (sender.address === this.config.defaults.fromEmail) return; // 跳过自己
+              if (sender.address === this.config.defaults.fromEmail) return; // Skip self
               
               const key = sender.address.toLowerCase();
               if (!contactMap.has(key)) {
@@ -808,10 +808,10 @@ export class MailService {
             });
           }
           
-          // 处理已发送邮件中的收件人
+          // Process recipients in sent mails
           if (folder === 'Sent Messages') {
             email.to.forEach(recipient => {
-              if (recipient.address === this.config.defaults.fromEmail) return; // 跳过自己
+              if (recipient.address === this.config.defaults.fromEmail) return; // Skip self
               
               const key = recipient.address.toLowerCase();
               if (!contactMap.has(key)) {
@@ -830,10 +830,10 @@ export class MailService {
               }
             });
             
-            // 如果有抄送人，也处理
+            // If there are CC, also process
             if (email.cc) {
               email.cc.forEach(cc => {
-                if (cc.address === this.config.defaults.fromEmail) return; // 跳过自己
+                if (cc.address === this.config.defaults.fromEmail) return; // Skip self
                 
                 const key = cc.address.toLowerCase();
                 if (!contactMap.has(key)) {
@@ -855,15 +855,15 @@ export class MailService {
           }
         });
       } catch (error) {
-        console.error(`从文件夹 ${folder} 收集联系人时出错:`, error);
-        // 继续处理其他文件夹
+        console.error(`Error collecting contacts from folder ${folder}:`, error);
+        // Continue processing other folders
       }
     }
     
-    // 转换为数组并排序（频率优先）
+    // Convert to array and sort (frequency priority)
     let contacts = Array.from(contactMap.values());
     
-    // 如果提供了搜索词，进行过滤
+    // If search term is provided, filter
     if (searchTerm) {
       contacts = contacts.filter(contact => 
         (contact.name?.toLowerCase() || '').includes(searchTerm) ||
@@ -871,30 +871,30 @@ export class MailService {
       );
     }
     
-    // 按联系频率排序
+    // Sort by contact frequency
     contacts.sort((a, b) => b.frequency - a.frequency);
     
-    // 限制结果数
+    // Limit result count
     contacts = contacts.slice(0, maxResults);
     
     return { contacts };
   }
 
   /**
-   * 获取邮件附件
-   * @param uid 邮件UID
-   * @param folder 文件夹名称
-   * @param attachmentIndex 附件索引
-   * @returns 附件数据，包括文件名、内容和内容类型
+   * Get mail attachment
+   * @param uid Mail UID
+   * @param folder Folder name
+   * @param attachmentIndex Attachment index
+   * @returns Attachment data, including filename, content and content type
    */
   async getAttachment(uid: number, folder: string = 'INBOX', attachmentIndex: number): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
     await this.connectImap();
-    console.log(`正在获取UID ${uid} 的第 ${attachmentIndex} 个附件...`);
+    console.log(`Getting attachment ${attachmentIndex} for UID ${uid}...`);
 
     return new Promise((resolve, reject) => {
       this.imapClient.openBox(folder, true, (err) => {
         if (err) {
-          console.error(`打开文件夹 ${folder} 失败:`, err);
+          console.error(`Failed to open folder ${folder}:`, err);
           reject(err);
           return;
         }
@@ -905,7 +905,7 @@ export class MailService {
         
         f.on('message', (msg, seqno) => {
           msg.on('body', (stream, info) => {
-            // 这个事件处理器只是为了确保消息体被处理
+            // This event handler is only to ensure message body is processed
             stream.on('data', () => {});
             stream.on('end', () => {});
           });
@@ -916,27 +916,27 @@ export class MailService {
               const attachments = this.findAttachmentParts(struct);
               
               if (attachments.length <= attachmentIndex) {
-                console.log(`附件索引 ${attachmentIndex} 超出范围，附件总数: ${attachments.length}`);
+                console.log(`Attachment index ${attachmentIndex} out of range, total attachments: ${attachments.length}`);
                 resolve(null);
                 return;
               }
               
               attachmentInfo = attachments[attachmentIndex];
-              console.log(`找到附件信息:`, attachmentInfo);
+              console.log('Found attachment info:', attachmentInfo);
             } catch (error) {
-              console.error(`解析附件结构时出错:`, error);
+              console.error('Error parsing attachment structure:', error);
               reject(error);
             }
           });
           
           msg.once('end', () => {
             if (!attachmentInfo) {
-              console.log(`未找到附件或附件索引无效`);
+              console.log('Attachment not found or invalid attachment index');
               resolve(null);
               return;
             }
             
-            // 获取附件内容
+            // Get attachment content
             const attachmentFetch = this.imapClient.fetch(`${uid}`, { 
               bodies: [attachmentInfo.partID],
               struct: true 
@@ -951,22 +951,22 @@ export class MailService {
                 });
                 
                 stream.once('end', () => {
-                  console.log(`附件内容下载完成，大小: ${buffer.length} 字节`);
+                  console.log(`Attachment content download completed, size: ${buffer.length} bytes`);
                 });
               });
               
               msg.once('end', () => {
-                console.log(`附件消息处理完成`);
+                console.log('Attachment message processing completed');
               });
             });
             
             attachmentFetch.once('error', (err) => {
-              console.error(`获取附件内容时出错:`, err);
+              console.error('Error getting attachment content:', err);
               reject(err);
             });
             
             attachmentFetch.once('end', () => {
-              console.log(`附件获取流程结束`);
+              console.log('Attachment retrieval process ended');
               resolve({
                 filename: attachmentInfo!.filename,
                 content: buffer,
@@ -977,13 +977,13 @@ export class MailService {
         });
         
         f.once('error', (err) => {
-          console.error(`获取邮件时出错:`, err);
+          console.error('Error getting mail:', err);
           reject(err);
         });
         
         f.once('end', () => {
           if (!attachmentInfo) {
-            console.log(`未找到附件或结构中没有附件`);
+            console.log('No attachment found or no attachments in structure');
             resolve(null);
           }
         });
@@ -992,7 +992,7 @@ export class MailService {
   }
 
   /**
-   * 辅助方法：查找邮件结构中的所有附件
+   * Helper method: find all attachments in mail structure
    */
   private findAttachmentParts(struct: any[], prefix = ''): { partID: string; filename: string; contentType: string }[] {
     const attachments: { partID: string; filename: string; contentType: string }[] = [];
@@ -1001,9 +1001,9 @@ export class MailService {
     
     const processStruct = (s: any, partID = '') => {
       if (Array.isArray(s)) {
-        // 多部分结构
+        // Multi-part structure
         if (s[0] && typeof s[0] === 'object' && s[0].partID) {
-          // 这是一个具体的部分
+          // This is a specific part
           if (s[0].disposition && 
               (s[0].disposition.type.toLowerCase() === 'attachment' || 
                s[0].disposition.type.toLowerCase() === 'inline')) {
@@ -1025,13 +1025,13 @@ export class MailService {
             }
           }
         } else {
-          // 遍历数组中的每个元素
+          // Iterate through each element in the array
           for (let i = 0; i < s.length; i++) {
             const newPrefix = partID ? `${partID}.${i + 1}` : `${i + 1}`;
             if (Array.isArray(s[i])) {
               processStruct(s[i], newPrefix);
             } else if (typeof s[i] === 'object') {
-              // 可能是一个部分定义
+              // Might be a part definition
               if (s[i].disposition && 
                   (s[i].disposition.type.toLowerCase() === 'attachment' || 
                    s[i].disposition.type.toLowerCase() === 'inline')) {
@@ -1063,12 +1063,12 @@ export class MailService {
   }
 
   /**
-   * 批量将邮件标记为已读
+   * Batch mark mails as read
    */
   async markMultipleAsRead(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
     
-    // 确保所有 uid 都是数字类型
+    // Ensure all uids are numeric type
     const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
@@ -1090,12 +1090,12 @@ export class MailService {
   }
 
   /**
-   * 批量将邮件标记为未读
+   * Batch mark mails as unread
    */
   async markMultipleAsUnread(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
     await this.connectImap();
     
-    // 确保所有 uid 都是数字类型
+    // Ensure all uids are numeric type
     const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
@@ -1117,25 +1117,25 @@ export class MailService {
   }
 
   /**
-   * 等待新邮件回复
-   * 此方法使用轮询方式检测新邮件的到达。主要用于需要等待用户邮件回复的场景。
+   * Wait for new mail reply
+   * This method uses polling to detect new mail arrivals. Mainly used for scenarios that need to wait for user mail replies.
    * 
-   * 工作原理：
-   * 1. 首先检查是否有5分钟内的未读邮件，如果有，返回特殊状态提示需要先处理这些邮件
-   * 2. 如果没有最近的未读邮件，则：
-   *    - 连接到IMAP服务器并获取当前邮件数量
-   *    - 每5秒检查一次邮件数量
-   *    - 如果发现新邮件，获取最新的邮件内容
-   *    - 如果超过指定时间仍未收到新邮件，则返回null
+   * Working principle:
+   * 1. First check if there are unread mails within 5 minutes, if yes, return special status to prompt processing of these mails first
+   * 2. If no recent unread mails, then:
+   *    - Connect to IMAP server and get current mail count
+   *    - Check every 5 seconds for mail count changes
+   *    - If new mail is detected, get the latest mail content
+   *    - If no new mail arrives within the specified time, return null
    * 
-   * @param folder 要监听的文件夹，默认为'INBOX'（收件箱）
-   * @param timeout 超时时间（毫秒），默认为3小时。超时后返回null
-   * @returns 如果在超时前收到新邮件，返回邮件详情；如果超时，返回null；如果有最近未读邮件，返回带有特殊标记的邮件列表
+   * @param folder Folder to listen to, defaults to 'INBOX' (inbox)
+   * @param timeout Timeout (milliseconds), defaults to 3 hours. Returns null if timeout
+   * @returns If new mail arrives before timeout, return mail details; if timeout, return null; if there are recent unread mails, return list with special marker
    */
   async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<MailItem | null | { type: 'unread_warning'; mails: MailItem[] }> {
     await this.connectImap();
 
-    // 检查5分钟内的未读邮件
+    // Check for unread mails within 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const existingMails = await this.searchMails({
       folder,
@@ -1144,9 +1144,9 @@ export class MailService {
       fromDate: fiveMinutesAgo
     });
 
-    // 如果有5分钟内的未读邮件，返回特殊状态
+    // If there are unread mails within 5 minutes, return special status
     if (existingMails.length > 0) {
-      console.log(`[waitForNewReply] 发现${existingMails.length}封最近5分钟内的未读邮件，需要先处理`);
+      console.log(`[waitForNewReply] Found ${existingMails.length} unread mails in the last 5 minutes, need to process first`);
       return {
         type: 'unread_warning',
         mails: existingMails
@@ -1159,7 +1159,7 @@ export class MailService {
       let initialCount = 0;
       let checkInterval: NodeJS.Timeout;
 
-      // 清理函数
+      // Cleanup function
       const cleanup = () => {
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -1169,7 +1169,7 @@ export class MailService {
         }
       };
 
-      // 设置超时
+      // Set timeout
       timeoutId = setTimeout(() => {
         if (!isResolved) {
           isResolved = true;
@@ -1178,7 +1178,7 @@ export class MailService {
         }
       }, timeout);
 
-      // 获取初始邮件数量并开始轮询
+      // Get initial mail count and start polling
       this.imapClient.openBox(folder, false, (err, mailbox) => {
         if (err) {
           cleanup();
@@ -1186,24 +1186,24 @@ export class MailService {
           return;
         }
 
-        // 记录初始邮件数量
+        // Record initial mail count
         initialCount = mailbox.messages.total;
-        console.log(`[waitForNewReply] 初始邮件数量: ${initialCount}，开始等待新邮件回复...`);
+        console.log(`[waitForNewReply] Initial mail count: ${initialCount}, starting to wait for new mail reply...`);
 
-        // 每5秒检查一次新邮件
+        // Check for new mails every 5 seconds
         checkInterval = setInterval(async () => {
           if (isResolved) return;
 
           try {
-            // 重新打开邮箱以获取最新状态
+            // Reopen mailbox to get latest status
             this.imapClient.openBox(folder, false, async (err, mailbox) => {
               if (err || isResolved) return;
 
               const currentCount = mailbox.messages.total;
-              console.log(`[waitForNewReply] 当前邮件数量: ${currentCount}，初始数量: ${initialCount}`);
+              console.log(`[waitForNewReply] Current mail count: ${currentCount}, initial count: ${initialCount}`);
 
               if (currentCount > initialCount) {
-                // 有新邮件，获取最新的邮件
+                // There are new mails, get the latest mail
                 try {
                   const messages = await this.searchMails({
                     folder,
@@ -1211,22 +1211,22 @@ export class MailService {
                   });
 
                   if (messages.length > 0 && !isResolved) {
-                    // 获取完整的邮件内容
+                    // Get complete mail content
                     const fullMail = await this.getMailDetail(messages[0].uid, folder);
                     if (fullMail) {
-                      console.log(`[waitForNewReply] 收到新邮件回复，主题: "${fullMail.subject}"`);
+                      console.log(`[waitForNewReply] Received new mail reply, subject: "${fullMail.subject}"`);
                       isResolved = true;
                       cleanup();
                       resolve(fullMail);
                     }
                   }
                 } catch (error) {
-                  console.error('[waitForNewReply] 获取新邮件失败:', error);
+                  console.error('[waitForNewReply] Failed to get new mail:', error);
                 }
               }
             });
           } catch (error) {
-            console.error('[waitForNewReply] 检查新邮件时出错:', error);
+            console.error('[waitForNewReply] Error checking for new mail:', error);
           }
         }, 5000);
       });

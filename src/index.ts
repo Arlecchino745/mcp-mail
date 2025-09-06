@@ -4,39 +4,39 @@ import { MailMCP } from './tools/mail.js';
 import { ProcessManager } from './tools/process-manager.js';
 import { config } from 'dotenv';
 
-// 加载环境变量
+// Load environment variables
 config();
 
-// 主函数
+// Main function
 async function main() {
-  // 创建进程管理器
+  // Create process manager
   const processManager = new ProcessManager();
 
-  // 检查进程互斥
+  // Check process mutex
   if (!await processManager.checkAndCreateLock()) {
-    console.log('无法创建MCP实例，程序退出');
+    console.log('Unable to create MCP instance, program exits');
     process.exit(1);
   }
 
-  // 实例化邮件MCP
+  // Instantiate mail MCP
   const mailMCP = new MailMCP();
 
-  // 处理进程退出
+  // Handle process exit
   process.on('SIGINT', async () => {
-    console.log('正在关闭邮件MCP服务...');
+    console.log('Closing mail MCP service...');
     await mailMCP.close();
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
-    console.log('正在关闭邮件MCP服务...');
+    console.log('Closing mail MCP service...');
     await mailMCP.close();
     process.exit(0);
   });
 }
 
-// 启动应用
+// Start application
 main().catch(error => {
-  console.error('MCP服务启动失败:', error);
+  console.error('MCP service startup failed:', error);
   process.exit(1);
 }); 
