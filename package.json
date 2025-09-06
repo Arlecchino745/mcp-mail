@@ -1,7 +1,7 @@
 {
   "name": "mcp-mail",
   "version": "1.0.0",
-  "description": "邮件管理发送的MCP工具",
+  "description": "MCP tool for email management",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
