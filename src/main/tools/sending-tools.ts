@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { MailService, MailInfo } from '../mail-service/exports.js';
+import { MailService, MailInfo } from '../service/exports.js';
 
 /**
  * Register mail sending related tools
