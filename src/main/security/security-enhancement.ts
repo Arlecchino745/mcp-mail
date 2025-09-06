@@ -194,13 +194,100 @@ export class SecurityEnhancement {
    * Sanitize email content to prevent injection attacks
    */
   static sanitizeEmailContent(content: string): string {
+    if (!content || typeof content !== 'string') {
+      return '';
+    }
+
     // Remove potentially dangerous patterns
     return content
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/javascript:/gi, '')
       .replace(/vbscript:/gi, '')
       .replace(/on\w+\s*=/gi, '')
-      .replace(/data:text\/html/gi, 'data:text/plain');
+      .replace(/data:text\/html/gi, 'data:text/plain')
+      .replace(/data:application\/javascript/gi, 'data:text/plain')
+      .replace(/data:text\/javascript/gi, 'data:text/plain');
+  }
+
+  /**
+   * Validate and sanitize file paths
+   */
+  static validateFilePath(filePath: string, allowedExtensions?: string[]): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!filePath || typeof filePath !== 'string') {
+      errors.push('File path is required and must be a string');
+      return { isValid: false, errors };
+    }
+
+    // Check for path traversal attempts
+    if (filePath.includes('..') || filePath.includes('./') || filePath.includes('.\\')) {
+      errors.push('Path traversal detected in file path');
+    }
+
+    // Check for absolute paths (security risk)
+    if (filePath.startsWith('/') || /^[A-Za-z]:/.test(filePath)) {
+      errors.push('Absolute paths are not allowed');
+    }
+
+    // Check file extension if allowed extensions are specified
+    if (allowedExtensions && allowedExtensions.length > 0) {
+      const extension = filePath.toLowerCase().split('.').pop();
+      if (!extension || !allowedExtensions.includes(`.${extension}`)) {
+        errors.push(`File extension is not allowed. Allowed extensions: ${allowedExtensions.join(', ')}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Check if content contains suspicious patterns
+   */
+  static detectSuspiciousContent(content: string | Buffer): { isSuspicious: boolean; reasons: string[] } {
+    const reasons: string[] = [];
+    const textContent = typeof content === 'string' ? content : content.toString('utf-8', 0, Math.min(content.length, 1024));
+
+    // Check for executable signatures
+    if (content instanceof Buffer) {
+      // Check for PE header (Windows executables)
+      if (content.length > 2 && content[0] === 0x4D && content[1] === 0x5A) {
+        reasons.push('PE executable detected');
+      }
+      
+      // Check for ELF header (Linux executables)
+      if (content.length > 4 && content[0] === 0x7F && content[1] === 0x45 && content[2] === 0x4C && content[3] === 0x46) {
+        reasons.push('ELF executable detected');
+      }
+    }
+
+    // Check for suspicious script patterns
+    const suspiciousPatterns = [
+      /eval\s*\(/gi,
+      /exec\s*\(/gi,
+      /system\s*\(/gi,
+      /shell_exec\s*\(/gi,
+      /passthru\s*\(/gi,
+      /base64_decode\s*\(/gi,
+      /gzinflate\s*\(/gi,
+      /str_rot13\s*\(/gi,
+      /<\?php/gi,
+      /<%.*%>/gi
+    ];
+
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(textContent)) {
+        reasons.push(`Suspicious pattern detected: ${pattern.source}`);
+      }
+    }
+
+    return {
+      isSuspicious: reasons.length > 0,
+      reasons
+    };
   }
 
   /**

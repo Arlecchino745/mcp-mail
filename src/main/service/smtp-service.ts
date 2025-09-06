@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { promisify } from 'util';
 import { MailConfig, MailInfo } from './types.js';
-import { SecurityEnhancement } from '../security-enhancement.js';
+import { SecurityEnhancement } from '../security/index.js';
 
 /**
  * SMTP service for sending emails
@@ -59,9 +59,55 @@ export class SmtpService {
    */
   async sendMail(mailInfo: MailInfo): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      // Validate email addresses to prevent injection
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      
+      // Validate 'to' addresses
+      const toAddresses = Array.isArray(mailInfo.to) ? mailInfo.to : [mailInfo.to];
+      for (const addr of toAddresses) {
+        if (!emailRegex.test(addr)) {
+          SecurityEnhancement.logSecurityEvent('Invalid email address in TO field', { address: addr });
+          return { success: false, error: `Invalid email address: ${addr}` };
+        }
+      }
+
+      // Validate 'cc' addresses if present
+      if (mailInfo.cc) {
+        const ccAddresses = Array.isArray(mailInfo.cc) ? mailInfo.cc : [mailInfo.cc];
+        for (const addr of ccAddresses) {
+          if (!emailRegex.test(addr)) {
+            SecurityEnhancement.logSecurityEvent('Invalid email address in CC field', { address: addr });
+            return { success: false, error: `Invalid email address in CC: ${addr}` };
+          }
+        }
+      }
+
+      // Validate 'bcc' addresses if present
+      if (mailInfo.bcc) {
+        const bccAddresses = Array.isArray(mailInfo.bcc) ? mailInfo.bcc : [mailInfo.bcc];
+        for (const addr of bccAddresses) {
+          if (!emailRegex.test(addr)) {
+            SecurityEnhancement.logSecurityEvent('Invalid email address in BCC field', { address: addr });
+            return { success: false, error: `Invalid email address in BCC: ${addr}` };
+          }
+        }
+      }
+
       // Sanitize email content for security
       const sanitizedText = mailInfo.text ? SecurityEnhancement.sanitizeEmailContent(mailInfo.text) : undefined;
       const sanitizedHtml = mailInfo.html ? SecurityEnhancement.sanitizeEmailContent(mailInfo.html) : undefined;
+
+      // Validate and sanitize subject
+      let sanitizedSubject = mailInfo.subject;
+      if (sanitizedSubject.length > 998) { // RFC 5322 limit
+        sanitizedSubject = sanitizedSubject.substring(0, 995) + '...';
+        SecurityEnhancement.logSecurityEvent('Email subject truncated', { 
+          originalLength: mailInfo.subject.length 
+        });
+      }
+
+      // Remove control characters from subject
+      sanitizedSubject = sanitizedSubject.replace(/[\x00-\x1F\x7F]/g, '');
 
       const mailOptions = {
         from: {
@@ -71,16 +117,18 @@ export class SmtpService {
         to: mailInfo.to,
         cc: mailInfo.cc,
         bcc: mailInfo.bcc,
-        subject: mailInfo.subject,
+        subject: sanitizedSubject,
         text: sanitizedText,
         html: sanitizedHtml,
         attachments: mailInfo.attachments,
       };
 
       SecurityEnhancement.logSecurityEvent('Sending email', { 
-        to: mailInfo.to, 
-        subject: mailInfo.subject,
-        hasAttachments: !!(mailInfo.attachments && mailInfo.attachments.length > 0)
+        to: Array.isArray(mailInfo.to) ? mailInfo.to.length : 1, 
+        subject: sanitizedSubject,
+        hasAttachments: !!(mailInfo.attachments && mailInfo.attachments.length > 0),
+        textLength: sanitizedText?.length || 0,
+        htmlLength: sanitizedHtml?.length || 0
       });
 
       const info = await this.transporter.sendMail(mailOptions);

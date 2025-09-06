@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { MailService, MailSearchOptions, MailItem } from '../service/exports.js';
 import path from 'path';
 import fs from 'fs';
+import { FileSecurity, SecurityEnhancement } from '../security/index.js';
 
 /**
  * Register mail receiving and query related tools
@@ -521,6 +522,14 @@ export function registerReceivingTools(server: McpServer, mailService: MailServi
     },
     async (params) => {
       try {
+        // Log security event
+        SecurityEnhancement.logSecurityEvent('Attachment download request', {
+          uid: params.uid,
+          folder: params.folder,
+          attachmentIndex: params.attachmentIndex,
+          saveToFile: params.saveToFile
+        });
+
         const attachment = await mailService.getAttachment(
           params.uid, 
           params.folder, 
@@ -534,68 +543,137 @@ export function registerReceivingTools(server: McpServer, mailService: MailServi
             ]
           };
         }
+
+        // Validate attachment security
+        const validation = FileSecurity.validateAttachment(attachment);
+        if (!validation.isValid) {
+          SecurityEnhancement.logSecurityEvent('Attachment validation failed', {
+            filename: attachment.filename,
+            errors: validation.errors
+          });
+          return {
+            content: [
+              { type: "text", text: `Attachment validation failed: ${validation.errors.join(', ')}` }
+            ]
+          };
+        }
+
+        // Log warnings if any
+        if (validation.warnings.length > 0) {
+          SecurityEnhancement.logSecurityEvent('Attachment security warnings', {
+            filename: attachment.filename,
+            warnings: validation.warnings
+          });
+        }
+
+        // Get secure file information
+        const fileInfo = FileSecurity.getFileInfo(attachment);
         
         // Process attachment based on whether to save to file
         if (params.saveToFile) {
-          // Create attachment save directory
-          const downloadDir = path.join(process.cwd(), 'downloads');
-          if (!fs.existsSync(downloadDir)) {
-            fs.mkdirSync(downloadDir, { recursive: true });
+          // Save attachment securely
+          const saveResult = await FileSecurity.saveAttachment(attachment);
+          
+          if (!saveResult.success) {
+            SecurityEnhancement.logSecurityEvent('Attachment save failed', {
+              filename: attachment.filename,
+              error: saveResult.error
+            });
+            return {
+              content: [
+                { type: "text", text: `Failed to save attachment: ${saveResult.error}` }
+              ]
+            };
           }
-          
-          // Generate safe filename (remove illegal characters)
-          const safeFilename = attachment.filename.replace(/[/\\?%*:|"<>]/g, '-');
-          const filePath = path.join(downloadDir, safeFilename);
-          
-          // Write to file
-          fs.writeFileSync(filePath, attachment.content);
+
+          SecurityEnhancement.logSecurityEvent('Attachment saved successfully', {
+            filename: attachment.filename,
+            filePath: saveResult.filePath,
+            size: fileInfo.size
+          });
+
+          let resultText = `📎 Attachment "${fileInfo.filename}" has been downloaded and saved to ${saveResult.filePath}\n`;
+          resultText += `Type: ${fileInfo.contentType}\n`;
+          resultText += `Size: ${fileInfo.sizeFormatted}\n`;
+          resultText += `SHA256: ${fileInfo.hash}`;
+
+          if (saveResult.warnings && saveResult.warnings.length > 0) {
+            resultText += `\n\n⚠️ Warnings:\n${saveResult.warnings.join('\n')}`;
+          }
           
           return {
             content: [
               { 
                 type: "text", 
-                text: `Attachment "${attachment.filename}" has been downloaded and saved to ${filePath}\nType: ${attachment.contentType}\nSize: ${Math.round(attachment.content.length / 1024)} KB` 
+                text: resultText
               }
             ]
           };
         } else {
-          // Process content based on content type
-          if (attachment.contentType.startsWith('text/') || 
-              attachment.contentType === 'application/json') {
-            // Display content for text files
+          // Process content based on content type for preview
+          if (fileInfo.isPreviewSafe) {
+            // Display content for safe preview types
             const textContent = attachment.content.toString('utf-8');
+            const truncatedContent = textContent.length > 10000 ? 
+              textContent.substring(0, 10000) + '\n\n[Content truncated for security]' : 
+              textContent;
+
+            SecurityEnhancement.logSecurityEvent('Attachment content previewed', {
+              filename: attachment.filename,
+              contentType: fileInfo.contentType,
+              size: fileInfo.size
+            });
+
             return {
               content: [
                 { 
                   type: "text", 
-                  text: `📎 Attachment "${attachment.filename}" (${attachment.contentType})\n\n${textContent.substring(0, 10000)}${textContent.length > 10000 ? '\n\n[Content too long, truncated]' : ''}` 
+                  text: `📎 Attachment "${fileInfo.filename}" (${fileInfo.contentType})\nSize: ${fileInfo.sizeFormatted}\nSHA256: ${fileInfo.hash}\n\n${truncatedContent}` 
                 }
               ]
             };
           } else if (attachment.contentType.startsWith('image/')) {
-            // Provide Base64 encoding for image files
-            const base64Content = attachment.content.toString('base64');
+            // Provide information for image files without exposing content
+            SecurityEnhancement.logSecurityEvent('Image attachment info displayed', {
+              filename: attachment.filename,
+              contentType: fileInfo.contentType,
+              size: fileInfo.size
+            });
+
             return {
               content: [
                 { 
                   type: "text", 
-                  text: `📎 Image attachment "${attachment.filename}" (${attachment.contentType})\nSize: ${Math.round(attachment.content.length / 1024)} KB\n\n[Image content has been converted to Base64 encoding, can be used for online preview]` 
+                  text: `📎 Image attachment "${fileInfo.filename}" (${fileInfo.contentType})\nSize: ${fileInfo.sizeFormatted}\nSHA256: ${fileInfo.hash}\n\n[Image preview disabled for security. Use saveToFile=true to download]` 
                 }
               ]
             };
           } else {
-            // Other binary files
+            // Other binary files - provide info only
+            SecurityEnhancement.logSecurityEvent('Binary attachment info displayed', {
+              filename: attachment.filename,
+              contentType: fileInfo.contentType,
+              size: fileInfo.size
+            });
+
             return {
               content: [
                 { 
                   type: "text", 
-                  text: `📎 Binary attachment "${attachment.filename}" (${attachment.contentType})\nSize: ${Math.round(attachment.content.length / 1024)} KB\n\n[Binary content cannot be displayed directly]` 
+                  text: `📎 Binary attachment "${fileInfo.filename}" (${fileInfo.contentType})\nSize: ${fileInfo.sizeFormatted}\nSHA256: ${fileInfo.hash}\n\n[Binary content cannot be displayed. Use saveToFile=true to download]` 
                 }
               ]
             };
           }
         }
       } catch (error) {
+        SecurityEnhancement.logSecurityEvent('Attachment processing error', {
+          uid: params.uid,
+          folder: params.folder,
+          attachmentIndex: params.attachmentIndex,
+          error: error instanceof Error ? error.message : String(error)
+        });
+
         return {
           content: [
             { type: "text", text: `Error occurred while getting attachment: ${error instanceof Error ? error.message : String(error)}` }

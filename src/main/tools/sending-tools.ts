@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { MailService, MailInfo } from '../service/exports.js';
+import { FileSecurity, SecurityEnhancement } from '../security/index.js';
 
 /**
  * Register mail sending related tools
@@ -35,6 +36,46 @@ export function registerSendingTools(server: McpServer, mailService: MailService
         }
         
         console.log(`Starting bulk mail sending, number of recipients: ${params.to.length}`);
+        
+        // Validate attachments if present
+        if (params.attachments && params.attachments.length > 0) {
+          SecurityEnhancement.logSecurityEvent('Bulk mail attachments validation', {
+            recipientCount: params.to.length,
+            attachmentCount: params.attachments.length
+          });
+
+          for (let i = 0; i < params.attachments.length; i++) {
+            const attachment = params.attachments[i];
+            const content = Buffer.isBuffer(attachment.content) ? 
+              attachment.content : 
+              Buffer.from(attachment.content, 'utf-8');
+            
+            const validation = FileSecurity.validateAttachment({
+              filename: attachment.filename,
+              content,
+              contentType: attachment.contentType || 'application/octet-stream'
+            });
+
+            if (!validation.isValid) {
+              SecurityEnhancement.logSecurityEvent('Bulk mail attachment validation failed', {
+                filename: attachment.filename,
+                errors: validation.errors
+              });
+              return {
+                content: [
+                  { type: "text", text: `Attachment "${attachment.filename}" validation failed: ${validation.errors.join(', ')}` }
+                ]
+              };
+            }
+
+            if (validation.warnings.length > 0) {
+              SecurityEnhancement.logSecurityEvent('Bulk mail attachment warnings', {
+                filename: attachment.filename,
+                warnings: validation.warnings
+              });
+            }
+          }
+        }
         
         const results = [];
         let successCount = 0;
@@ -134,6 +175,57 @@ export function registerSendingTools(server: McpServer, mailService: MailService
         
         // Process recipient information, ensure to field exists
         const to = params.to;
+        
+        // Validate attachments if present
+        if (params.attachments && params.attachments.length > 0) {
+          SecurityEnhancement.logSecurityEvent('Mail attachments validation', {
+            recipientCount: to.length,
+            attachmentCount: params.attachments.length
+          });
+
+          for (let i = 0; i < params.attachments.length; i++) {
+            const attachment = params.attachments[i];
+            const content = Buffer.isBuffer(attachment.content) ? 
+              attachment.content : 
+              Buffer.from(attachment.content, 'utf-8');
+            
+            const validation = FileSecurity.validateAttachment({
+              filename: attachment.filename,
+              content,
+              contentType: attachment.contentType || 'application/octet-stream'
+            });
+
+            if (!validation.isValid) {
+              SecurityEnhancement.logSecurityEvent('Mail attachment validation failed', {
+                filename: attachment.filename,
+                errors: validation.errors
+              });
+              return {
+                content: [
+                  { type: "text", text: `Attachment "${attachment.filename}" validation failed: ${validation.errors.join(', ')}` }
+                ]
+              };
+            }
+
+            if (validation.warnings.length > 0) {
+              SecurityEnhancement.logSecurityEvent('Mail attachment warnings', {
+                filename: attachment.filename,
+                warnings: validation.warnings
+              });
+            }
+
+            // Sanitize filename for security
+            const sanitizeResult = FileSecurity.sanitizeFilename(attachment.filename);
+            if (!sanitizeResult.isValid) {
+              SecurityEnhancement.logSecurityEvent('Attachment filename sanitized', {
+                original: attachment.filename,
+                sanitized: sanitizeResult.sanitized,
+                errors: sanitizeResult.errors
+              });
+            }
+            attachment.filename = sanitizeResult.sanitized;
+          }
+        }
         
         const mailInfo: MailInfo = {
           to: to,

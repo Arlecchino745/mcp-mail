@@ -15,7 +15,7 @@ import {
   UnreadWarning
 } from './types.js';
 import { MailUtils } from './utils.js';
-import { SecurityEnhancement } from '../security-enhancement.js';
+import { SecurityEnhancement } from '../security/index.js';
 
 /**
  * IMAP service for receiving and managing emails

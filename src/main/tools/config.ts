@@ -1,6 +1,5 @@
 import { MailConfig } from '../service/exports.js';
-import { ConfigValidator } from '../config-validator.js';
-import { SecurityEnhancement } from '../security-enhancement.js';
+import { ConfigValidator, SecurityEnhancement } from '../security/index.js';
 
 /**
  * Validate whether necessary environment variables are set
