@@ -8,13 +8,13 @@ import { SecurityEnhancement } from './security-enhancement.js';
  * File security utilities for safe file operations
  */
 export class FileSecurity {
-  // Allowed file extensions for attachments
+  // Allowed file extensions for attachments (safe, non-executable files only)
   private static readonly ALLOWED_EXTENSIONS = [
     '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
     '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp',
     '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
     '.zip', '.rar', '.7z', '.tar', '.gz',
-    '.csv', '.json', '.xml', '.html', '.htm', '.css', '.js',
+    '.csv', '.json', '.xml', '.css',
     '.md', '.rtf', '.odt', '.ods', '.odp'
   ];
 
@@ -23,7 +23,10 @@ export class FileSecurity {
     '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.vbe',
     '.js', '.jse', '.jar', '.msi', '.dll', '.scf', '.lnk', '.inf',
     '.reg', '.ps1', '.psm1', '.psd1', '.ps1xml', '.psc1', '.psc2',
-    '.msh', '.msh1', '.msh2', '.mshxml', '.msh1xml', '.msh2xml'
+    '.msh', '.msh1', '.msh2', '.mshxml', '.msh1xml', '.msh2xml',
+    '.php', '.asp', '.aspx', '.jsp', '.py', '.rb', '.pl', '.sh',
+    '.html', '.htm', '.hta', '.application', '.gadget', '.msp',
+    '.mst', '.cpl', '.ins', '.isp', '.ws', '.wsf', '.wsh'
   ];
 
   // Maximum file size (50MB)
