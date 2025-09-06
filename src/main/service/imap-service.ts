@@ -15,6 +15,7 @@ import {
   UnreadWarning
 } from './types.js';
 import { MailUtils } from './utils.js';
+import { SecurityEnhancement } from '../security-enhancement.js';
 
 /**
  * IMAP service for receiving and managing emails
@@ -39,7 +40,7 @@ export class ImapService {
       host: this.config.imap.host,
       port: this.config.imap.port,
       tls: this.config.imap.secure,
-      tlsOptions: { rejectUnauthorized: false },
+      tlsOptions: SecurityEnhancement.getSecureTLSOptions(),
     });
 
     // Listen for IMAP connection errors
@@ -58,10 +59,19 @@ export class ImapService {
     return new Promise((resolve, reject) => {
       this.client.once('ready', () => {
         this.isConnected = true;
+        SecurityEnhancement.logSecurityEvent('IMAP connection established', { 
+          host: this.config.imap.host, 
+          port: this.config.imap.port,
+          secure: this.config.imap.secure
+        });
         resolve();
       });
 
       this.client.once('error', (err: Error) => {
+        SecurityEnhancement.logSecurityEvent('IMAP connection failed', { 
+          host: this.config.imap.host, 
+          error: err.message 
+        });
         reject(err);
       });
 

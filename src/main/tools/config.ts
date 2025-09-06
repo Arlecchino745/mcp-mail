@@ -1,24 +1,19 @@
 import { MailConfig } from '../service/exports.js';
+import { ConfigValidator } from '../config-validator.js';
+import { SecurityEnhancement } from '../security-enhancement.js';
 
 /**
  * Validate whether necessary environment variables are set
  */
 export function validateEnvironmentVariables(): void {
-  const requiredVars = [
-    'SMTP_HOST',
-    'SMTP_USER',
-    'SMTP_PASS',
-    'IMAP_HOST',
-    'IMAP_USER',
-    'IMAP_PASS'
-  ];
+  // Use the enhanced config validator
+  const envValidation = ConfigValidator.validateEnvironmentVariables();
+  ConfigValidator.logValidationResults(envValidation);
 
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
-
-  if (missingVars.length > 0) {
+  if (!envValidation.isValid) {
     const errorMessage = `
 Missing required environment variables:
-${missingVars.join('\n')}
+${envValidation.errors.join('\n')}
 
 Please set these variables in your .env file:
 SMTP_HOST=your.smtp.server
@@ -36,9 +31,33 @@ IMAP_PASS=your_password
 Optional variables:
 DEFAULT_FROM_NAME=Your Name
 DEFAULT_FROM_EMAIL=your.email@domain.com
+
+Security recommendations:
+${ConfigValidator.getSecurityRecommendations().map(rec => `- ${rec}`).join('\n')}
 `;
     console.error(errorMessage);
     throw new Error('Missing required environment variables');
+  }
+
+  // Log warnings if any
+  if (envValidation.warnings.length > 0) {
+    console.warn('Configuration warnings:');
+    envValidation.warnings.forEach(warning => console.warn(`- ${warning}`));
+  }
+
+  const requiredVars = [
+    'SMTP_HOST',
+    'SMTP_USER',
+    'SMTP_PASS',
+    'IMAP_HOST',
+    'IMAP_USER',
+    'IMAP_PASS'
+  ];
+
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+  if (missingVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
 
   // Validate port numbers
@@ -58,7 +77,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
  * Load mail configuration from environment variables
  */
 export function loadMailConfig(): MailConfig {
-  return {
+  const config = {
     smtp: {
       host: process.env.SMTP_HOST!,
       port: parseInt(process.env.SMTP_PORT || '587'),
@@ -82,4 +101,27 @@ export function loadMailConfig(): MailConfig {
       fromEmail: process.env.DEFAULT_FROM_EMAIL || process.env.SMTP_USER || '',
     }
   };
+
+  // Validate the loaded configuration
+  const configValidation = ConfigValidator.validateMailConfig(config);
+  ConfigValidator.logValidationResults(configValidation);
+
+  if (!configValidation.isValid) {
+    throw new Error(`Configuration validation failed: ${configValidation.errors.join(', ')}`);
+  }
+
+  // Log warnings if any
+  if (configValidation.warnings.length > 0) {
+    console.warn('Configuration warnings:');
+    configValidation.warnings.forEach(warning => console.warn(`- ${warning}`));
+  }
+
+  SecurityEnhancement.logSecurityEvent('Mail configuration loaded and validated', {
+    smtpHost: config.smtp.host,
+    smtpSecure: config.smtp.secure,
+    imapHost: config.imap.host,
+    imapSecure: config.imap.secure
+  });
+
+  return config;
 }
