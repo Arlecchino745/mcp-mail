@@ -255,7 +255,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
             // 简单转换文本为HTML
             params.html = params.text
               .split('\n')
-              .map(line => `<p>${line}</p>`)
+              .map((line: string) => `<p>${line}</p>`)
               .join('');
           }
           
@@ -279,7 +279,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
           
           // 设置邮件内容
           if (params.html || (params.useHtml && params.text)) {
-            mailInfo.html = params.html || params.text?.split('\n').map(line => `<p>${line}</p>`).join('');
+            mailInfo.html = params.html || params.text?.split('\n').map((line: string) => `<p>${line}</p>`).join('');
           } else {
             mailInfo.text = params.text;
           }
@@ -1067,7 +1067,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       },
       async ({ uids, folder }) => {
         try {
-          const numericUids = uids.map(uid => Number(uid));
+          const numericUids = uids.map((uid: number) => Number(uid));
           const success = await this.mailService.markMultipleAsRead(numericUids, folder);
           
           if (success) {
@@ -1102,7 +1102,7 @@ DEFAULT_FROM_EMAIL=your.email@domain.com
       },
       async ({ uids, folder }) => {
         try {
-          const numericUids = uids.map(uid => Number(uid));
+          const numericUids = uids.map((uid: number) => Number(uid));
           const success = await this.mailService.markMultipleAsUnread(numericUids, folder);
           
           if (success) {
