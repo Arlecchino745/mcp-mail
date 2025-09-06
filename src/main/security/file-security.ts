@@ -3,6 +3,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { PathValidator } from './path-validator.js';
 import { SecurityEnhancement } from './security-enhancement.js';
+import { HtmlSanitizer } from './html-sanitizer.js';
 
 /**
  * File security utilities for safe file operations
@@ -15,7 +16,8 @@ export class FileSecurity {
     '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
     '.zip', '.rar', '.7z', '.tar', '.gz',
     '.csv', '.json', '.xml', '.css',
-    '.md', '.rtf', '.odt', '.ods', '.odp'
+    '.md', '.rtf', '.odt', '.ods', '.odp',
+    '.html', '.htm' // Now allowed with sanitization
   ];
 
   // Dangerous file extensions that should be blocked
@@ -25,7 +27,7 @@ export class FileSecurity {
     '.reg', '.ps1', '.psm1', '.psd1', '.ps1xml', '.psc1', '.psc2',
     '.msh', '.msh1', '.msh2', '.mshxml', '.msh1xml', '.msh2xml',
     '.php', '.asp', '.aspx', '.jsp', '.py', '.rb', '.pl', '.sh',
-    '.html', '.htm', '.hta', '.application', '.gadget', '.msp',
+    '.hta', '.application', '.gadget', '.msp',
     '.mst', '.cpl', '.ins', '.isp', '.ws', '.wsf', '.wsh'
   ];
 
@@ -251,6 +253,18 @@ export class FileSecurity {
       errors.push(`Suspicious content detected: ${contentCheck.reasons.join(', ')}`);
     }
 
+    // Special validation for HTML files
+    if (this.isHtmlContent(attachment.contentType, attachment.filename)) {
+      warnings.push('HTML content detected - will be sanitized before processing');
+      
+      // Additional HTML-specific validation
+      const htmlValidation = this.sanitizeHtmlAttachment(attachment);
+      if (!htmlValidation.success) {
+        errors.push(...htmlValidation.errors);
+      }
+      warnings.push(...htmlValidation.warnings);
+    }
+
     // Log security validation
     SecurityEnhancement.logSecurityEvent('Attachment validation completed', {
       filename: attachment.filename,
@@ -308,20 +322,43 @@ export class FileSecurity {
         return { success: false, error: 'Path validation failed - potential security violation' };
       }
 
+      // Handle HTML content sanitization before saving
+      let contentToSave = attachment.content;
+      const allWarnings = [...validation.warnings];
+
+      if (this.isHtmlContent(attachment.contentType, attachment.filename)) {
+        const htmlSanitization = this.sanitizeHtmlAttachment(attachment);
+        if (htmlSanitization.success && htmlSanitization.sanitizedContent) {
+          contentToSave = Buffer.from(htmlSanitization.sanitizedContent, 'utf-8');
+          allWarnings.push('HTML content was sanitized before saving');
+          allWarnings.push(...htmlSanitization.warnings);
+          
+          SecurityEnhancement.logSecurityEvent('HTML content sanitized', {
+            filename: attachment.filename,
+            originalSize: attachment.content.length,
+            sanitizedSize: contentToSave.length,
+            warnings: htmlSanitization.warnings.length
+          });
+        } else {
+          return { success: false, error: `HTML sanitization failed: ${htmlSanitization.errors.join(', ')}` };
+        }
+      }
+
       // Write file with secure permissions
-      await fs.promises.writeFile(safePath, attachment.content, { mode: 0o644 });
+      await fs.promises.writeFile(safePath, contentToSave, { mode: 0o644 });
 
       SecurityEnhancement.logSecurityEvent('Attachment saved securely', {
         filename: attachment.filename,
         savedPath: safePath,
-        size: attachment.content.length,
-        contentType: attachment.contentType
+        size: contentToSave.length,
+        contentType: attachment.contentType,
+        wasSanitized: this.isHtmlContent(attachment.contentType, attachment.filename)
       });
 
       return {
         success: true,
         filePath: safePath,
-        warnings: validation.warnings.length > 0 ? validation.warnings : undefined
+        warnings: allWarnings.length > 0 ? allWarnings : undefined
       };
     } catch (error) {
       SecurityEnhancement.logSecurityEvent('Attachment save failed', {
@@ -349,7 +386,6 @@ export class FileSecurity {
   static isPreviewSafe(contentType: string): boolean {
     const safePreviewTypes = [
       'text/plain',
-      'text/html',
       'text/css',
       'text/javascript',
       'text/csv',
@@ -359,7 +395,69 @@ export class FileSecurity {
       'application/pdf'
     ];
 
+    // HTML is now handled separately with sanitization
     return safePreviewTypes.includes(contentType.toLowerCase());
+  }
+
+  /**
+   * Check if HTML content can be safely displayed with sanitization
+   */
+  static isHtmlContent(contentType: string, filename?: string): boolean {
+    const htmlTypes = ['text/html', 'application/xhtml+xml'];
+    const htmlExtensions = ['.html', '.htm', '.xhtml'];
+    
+    const isHtmlType = htmlTypes.includes(contentType.toLowerCase());
+    const hasHtmlExtension = filename ? htmlExtensions.includes(path.extname(filename).toLowerCase()) : false;
+    
+    return isHtmlType || hasHtmlExtension;
+  }
+
+  /**
+   * Sanitize HTML attachment content
+   */
+  static sanitizeHtmlAttachment(attachment: { filename: string; content: Buffer; contentType: string }): {
+    success: boolean;
+    sanitizedContent?: string;
+    errors: string[];
+    warnings: string[];
+  } {
+    try {
+      // Check if it's HTML content
+      if (!this.isHtmlContent(attachment.contentType, attachment.filename)) {
+        return {
+          success: false,
+          errors: ['File is not HTML content'],
+          warnings: []
+        };
+      }
+
+      // Convert buffer to string
+      const htmlContent = attachment.content.toString('utf-8');
+
+      // Validate and sanitize HTML
+      const validation = HtmlSanitizer.validateHtmlAttachment(htmlContent);
+      
+      if (!validation.isValid) {
+        return {
+          success: false,
+          errors: validation.errors,
+          warnings: validation.warnings
+        };
+      }
+
+      return {
+        success: true,
+        sanitizedContent: validation.sanitizedContent,
+        errors: [],
+        warnings: validation.warnings
+      };
+    } catch (error) {
+      return {
+        success: false,
+        errors: [`HTML sanitization failed: ${error instanceof Error ? error.message : String(error)}`],
+        warnings: []
+      };
+    }
   }
 
   /**
@@ -372,11 +470,14 @@ export class FileSecurity {
     contentType: string;
     hash: string;
     isPreviewSafe: boolean;
+    isHtmlContent: boolean;
+    canBeSanitized: boolean;
     extension: string;
   } {
     const sizeInKB = Math.round(attachment.content.length / 1024);
     const sizeInMB = Math.round(attachment.content.length / 1024 / 1024 * 100) / 100;
     const sizeFormatted = sizeInMB >= 1 ? `${sizeInMB} MB` : `${sizeInKB} KB`;
+    const isHtml = this.isHtmlContent(attachment.contentType, attachment.filename);
 
     return {
       filename: attachment.filename,
@@ -385,6 +486,8 @@ export class FileSecurity {
       contentType: attachment.contentType,
       hash: this.calculateFileHash(attachment.content),
       isPreviewSafe: this.isPreviewSafe(attachment.contentType),
+      isHtmlContent: isHtml,
+      canBeSanitized: isHtml,
       extension: path.extname(attachment.filename).toLowerCase()
     };
   }
