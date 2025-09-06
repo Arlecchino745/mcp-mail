@@ -1,4 +1,4 @@
-import { MailConfig } from '../mail-service.js';
+import { MailConfig } from '../mail-service/exports.js';
 
 /**
  * Validate whether necessary environment variables are set

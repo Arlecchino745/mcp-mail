@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { MailService } from '../mail-service.js';
+import { MailService } from '../mail-service/exports.js';
 import { validateEnvironmentVariables, loadMailConfig } from './config.js';
 import { registerSendingTools } from './sending-tools.js';
 import { registerReceivingTools } from './receiving-tools.js';

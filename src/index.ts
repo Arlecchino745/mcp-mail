@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { MailMCP } from './tools/mail.js';
+import { MailMCP } from './tools/mail/index.js';
 import { ProcessManager } from './tools/process-manager.js';
 import { config } from 'dotenv';
 

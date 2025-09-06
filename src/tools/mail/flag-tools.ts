@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { MailService } from '../mail-service.js';
+import { MailService } from '../mail-service/exports.js';
 
 /**
  * Register mail flag tools

@@ -1,179 +1,81 @@
-import nodemailer from 'nodemailer';
 import IMAP from 'imap';
-import { simpleParser, ParsedMail, AddressObject } from 'mailparser';
+import { simpleParser, ParsedMail } from 'mailparser';
 import { Readable } from 'stream';
-import { promisify } from 'util';
+import { 
+  MailConfig, 
+  MailSearchOptions, 
+  MailItem, 
+  EmailAddress, 
+  AdvancedSearchOptions,
+  ContactsOptions,
+  ContactsResponse,
+  Contact,
+  AttachmentData,
+  WaitForNewReplyResponse,
+  UnreadWarning
+} from './types.js';
+import { MailUtils } from './utils.js';
 
-// Mail configuration interface
-export interface MailConfig {
-  smtp: {
-    host: string;
-    port: number;
-    secure: boolean;
-    auth: {
-      user: string;
-      pass: string;
-    }
-  },
-  imap: {
-    host: string;
-    port: number;
-    secure: boolean;
-    auth: {
-      user: string;
-      pass: string;
-    }
-  },
-  defaults: {
-    fromName: string;
-    fromEmail: string;
-  }
-}
-
-// Mail information interface
-export interface MailInfo {
-  to: string | string[];
-  cc?: string | string[];
-  bcc?: string | string[];
-  subject: string;
-  text?: string;
-  html?: string;
-  attachments?: Array<{
-    filename: string;
-    content: string | Buffer;
-    contentType?: string;
-  }>;
-}
-
-// Mail search options
-export interface MailSearchOptions {
-  folder?: string;
-  readStatus?: 'read' | 'unread' | 'all';
-  fromDate?: Date;
-  toDate?: Date;
-  from?: string;
-  to?: string;
-  subject?: string;
-  hasAttachments?: boolean;
-  limit?: number;
-}
-
-// Mail item
-export interface MailItem {
-  id: string;
-  uid: number;
-  subject: string;
-  from: { name?: string; address: string }[];
-  to: { name?: string; address: string }[];
-  cc?: { name?: string; address: string }[];
-  date: Date;
-  isRead: boolean;
-  hasAttachments: boolean;
-  attachments?: { filename: string; contentType: string; size: number }[];
-  textBody?: string;
-  htmlBody?: string;
-  flags?: string[];
-  size: number;
-  folder: string;
-}
-
-// Email address interface
-interface EmailAddress {
-  name?: string;
-  address: string;
-}
-
-export class MailService {
-  private smtpTransporter: nodemailer.Transporter;
-  private imapClient: IMAP;
+/**
+ * IMAP service for receiving and managing emails
+ */
+export class ImapService {
+  private client!: IMAP;
   private config: MailConfig;
-  private isImapConnected = false;
+  private isConnected = false;
 
   constructor(config: MailConfig) {
     this.config = config;
+    this.createClient();
+  }
 
-    // Create SMTP transporter
-    this.smtpTransporter = nodemailer.createTransport({
-      host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
-      auth: {
-        user: config.smtp.auth.user,
-        pass: config.smtp.auth.pass,
-      },
-    });
-
-    // Create IMAP client
-    this.imapClient = new IMAP({
-      user: config.imap.auth.user,
-      password: config.imap.auth.pass,
-      host: config.imap.host,
-      port: config.imap.port,
-      tls: config.imap.secure,
+  /**
+   * Create IMAP client
+   */
+  private createClient(): void {
+    this.client = new IMAP({
+      user: this.config.imap.auth.user,
+      password: this.config.imap.auth.pass,
+      host: this.config.imap.host,
+      port: this.config.imap.port,
+      tls: this.config.imap.secure,
       tlsOptions: { rejectUnauthorized: false },
     });
 
     // Listen for IMAP connection errors
-    this.imapClient.on('error', (err: Error) => {
+    this.client.on('error', (err: Error) => {
       console.error('IMAP error:', err);
-      this.isImapConnected = false;
+      this.isConnected = false;
     });
   }
 
   /**
    * Connect to IMAP server
    */
-  async connectImap(): Promise<void> {
-    if (this.isImapConnected) return;
+  async connect(): Promise<void> {
+    if (this.isConnected) return;
     
     return new Promise((resolve, reject) => {
-      this.imapClient.once('ready', () => {
-        this.isImapConnected = true;
+      this.client.once('ready', () => {
+        this.isConnected = true;
         resolve();
       });
 
-      this.imapClient.once('error', (err: Error) => {
+      this.client.once('error', (err: Error) => {
         reject(err);
       });
 
-      this.imapClient.connect();
+      this.client.connect();
     });
   }
 
   /**
    * Close IMAP connection
    */
-  closeImap(): void {
-    if (this.isImapConnected) {
-      this.imapClient.end();
-      this.isImapConnected = false;
-    }
-  }
-
-  /**
-   * Send mail
-   */
-  async sendMail(mailInfo: MailInfo): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    try {
-      const mailOptions = {
-        from: {
-          name: this.config.defaults.fromName,
-          address: this.config.defaults.fromEmail,
-        },
-        to: mailInfo.to,
-        cc: mailInfo.cc,
-        bcc: mailInfo.bcc,
-        subject: mailInfo.subject,
-        text: mailInfo.text,
-        html: mailInfo.html,
-        attachments: mailInfo.attachments,
-      };
-
-      const info = await this.smtpTransporter.sendMail(mailOptions);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('Send mail error:', error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+  close(): void {
+    if (this.isConnected) {
+      this.client.end();
+      this.isConnected = false;
     }
   }
 
@@ -181,10 +83,10 @@ export class MailService {
    * Get mailbox folder list
    */
   async getFolders(): Promise<string[]> {
-    await this.connectImap();
+    await this.connect();
 
     return new Promise((resolve, reject) => {
-      this.imapClient.getBoxes((err, boxes) => {
+      this.client.getBoxes((err, boxes) => {
         if (err) {
           reject(err);
           return;
@@ -212,13 +114,13 @@ export class MailService {
    * Search mails
    */
   async searchMails(options: MailSearchOptions = {}): Promise<MailItem[]> {
-    await this.connectImap();
+    await this.connect();
 
     const folder = options.folder || 'INBOX';
     const limit = options.limit || 20;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err, box) => {
+      this.client.openBox(folder, false, (err, box) => {
         if (err) {
           reject(err);
           return;
@@ -258,7 +160,7 @@ export class MailService {
         }
 
         // Execute search
-        this.imapClient.search(criteria, (err, uids) => {
+        this.client.search(criteria, (err, uids) => {
           if (err) {
             reject(err);
             return;
@@ -273,7 +175,7 @@ export class MailService {
           const limitedUids = uids.slice(-Math.min(limit, uids.length));
 
           // Get mail details
-          const fetch = this.imapClient.fetch(limitedUids, {
+          const fetch = this.client.fetch(limitedUids, {
             bodies: ['HEADER', 'TEXT'],
             struct: true,
             envelope: true,
@@ -309,9 +211,9 @@ export class MailService {
                   const parsed = IMAP.parseHeader(buffer);
                   
                   message.subject = parsed.subject?.[0] || '';
-                  message.from = this.parseAddressList(parsed.from);
-                  message.to = this.parseAddressList(parsed.to);
-                  message.cc = this.parseAddressList(parsed.cc);
+                  message.from = MailUtils.parseAddressList(parsed.from);
+                  message.to = MailUtils.parseAddressList(parsed.to);
+                  message.cc = MailUtils.parseAddressList(parsed.cc);
                   
                   if (parsed.date && parsed.date[0]) {
                     message.date = new Date(parsed.date[0]);
@@ -346,7 +248,7 @@ export class MailService {
               
               // Check if there are attachments
               if (attrs.struct) {
-                message.hasAttachments = this.checkHasAttachments(attrs.struct);
+                message.hasAttachments = MailUtils.checkHasAttachments(attrs.struct);
               }
             });
 
@@ -371,19 +273,19 @@ export class MailService {
    * Get mail details
    */
   async getMailDetail(uid: number | string, folder: string = 'INBOX'): Promise<MailItem | null> {
-    await this.connectImap();
+    await this.connect();
 
     // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
 
-        const fetch = this.imapClient.fetch([numericUid], {
+        const fetch = this.client.fetch([numericUid], {
           bodies: '',
           struct: true,
           markSeen: false,
@@ -516,19 +418,19 @@ export class MailService {
    * Mark mail as read
    */
   async markAsRead(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
 
-        this.imapClient.addFlags(numericUid, '\\Seen', (err) => {
+        this.client.addFlags(numericUid, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -543,19 +445,19 @@ export class MailService {
    * Mark mail as unread
    */
   async markAsUnread(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
 
-        this.imapClient.delFlags(numericUid, '\\Seen', (err) => {
+        this.client.delFlags(numericUid, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -570,25 +472,25 @@ export class MailService {
    * Delete mail
    */
   async deleteMail(uid: number | string, folder: string = 'INBOX'): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
 
-        this.imapClient.addFlags(numericUid, '\\Deleted', (err) => {
+        this.client.addFlags(numericUid, '\\Deleted', (err) => {
           if (err) {
             reject(err);
             return;
           }
 
-          this.imapClient.expunge((err) => {
+          this.client.expunge((err) => {
             if (err) {
               reject(err);
               return;
@@ -604,19 +506,19 @@ export class MailService {
    * Move mail to other folder
    */
   async moveMail(uid: number | string, sourceFolder: string, targetFolder: string): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure uid is numeric type
     const numericUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(sourceFolder, false, (err) => {
+      this.client.openBox(sourceFolder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
 
-        this.imapClient.move(numericUid, targetFolder, (err) => {
+        this.client.move(numericUid, targetFolder, (err) => {
           if (err) {
             reject(err);
             return;
@@ -628,61 +530,9 @@ export class MailService {
   }
 
   /**
-   * Close all connections
-   */
-  async close(): Promise<void> {
-    this.closeImap();
-    await promisify(this.smtpTransporter.close.bind(this.smtpTransporter))();
-  }
-
-  // Helper method: parse address list
-  private parseAddressList(addresses?: string[]): EmailAddress[] {
-    if (!addresses || addresses.length === 0) return [];
-    
-    return addresses.map(addr => {
-      const match = addr.match(/(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)/);
-      if (match) {
-        const [, name, address] = match;
-        return { name: name || undefined, address: address || '' };
-      }
-      return { address: addr };
-    });
-  }
-
-  // Helper method: check if there are attachments
-  private checkHasAttachments(struct: any[]): boolean {
-    if (!struct || !Array.isArray(struct)) return false;
-    
-    if (struct[0] && struct[0].disposition && struct[0].disposition.type.toLowerCase() === 'attachment') {
-      return true;
-    }
-    
-    for (const item of struct) {
-      if (Array.isArray(item)) {
-        if (this.checkHasAttachments(item)) {
-          return true;
-        }
-      }
-    }
-    
-    return false;
-  }
-
-  /**
    * Advanced search mails - support multiple folders and more complex filter conditions
    */
-  async advancedSearchMails(options: {
-    folders?: string[];        // List of folders to search, defaults to INBOX
-    keywords?: string;         // Full-text search keywords
-    startDate?: Date;          // Start date
-    endDate?: Date;            // End date
-    from?: string;             // Sender
-    to?: string;               // Recipient
-    subject?: string;          // Subject
-    hasAttachment?: boolean;   // Whether it has attachments
-    maxResults?: number;       // Maximum number of results
-    includeBody?: boolean;     // Whether to include email body
-  }): Promise<MailItem[]> {
+  async advancedSearchMails(options: AdvancedSearchOptions): Promise<MailItem[]> {
     const allResults: MailItem[] = [];
     const folders = options.folders || ['INBOX'];
     const maxResults = options.maxResults || 100;
@@ -747,32 +597,16 @@ export class MailService {
     // Limit result count
     return allResults.slice(0, maxResults);
   }
-  
+
   /**
    * Get address book - extract contact information based on email history
    */
-  async getContacts(options: {
-    maxResults?: number;   // Maximum number of results
-    includeGroups?: boolean; // Whether to include groups
-    searchTerm?: string;   // Search term
-  } = {}): Promise<{
-    contacts: {
-      name?: string;
-      email: string;
-      frequency: number;   // Contact frequency
-      lastContact?: Date;  // Last contact time
-    }[];
-  }> {
+  async getContacts(options: ContactsOptions = {}): Promise<ContactsResponse> {
     const maxResults = options.maxResults || 100;
     const searchTerm = options.searchTerm?.toLowerCase() || '';
     
     // Extract contacts from recent emails
-    const contactMap = new Map<string, {
-      name?: string;
-      email: string;
-      frequency: number;
-      lastContact?: Date;
-    }>();
+    const contactMap = new Map<string, Contact>();
     
     // Collect contacts from inbox and sent mails
     const folders = ['INBOX', 'Sent Messages'];
@@ -882,24 +716,20 @@ export class MailService {
 
   /**
    * Get mail attachment
-   * @param uid Mail UID
-   * @param folder Folder name
-   * @param attachmentIndex Attachment index
-   * @returns Attachment data, including filename, content and content type
    */
-  async getAttachment(uid: number, folder: string = 'INBOX', attachmentIndex: number): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
-    await this.connectImap();
+  async getAttachment(uid: number, folder: string = 'INBOX', attachmentIndex: number): Promise<AttachmentData | null> {
+    await this.connect();
     console.log(`Getting attachment ${attachmentIndex} for UID ${uid}...`);
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, true, (err) => {
+      this.client.openBox(folder, true, (err) => {
         if (err) {
           console.error(`Failed to open folder ${folder}:`, err);
           reject(err);
           return;
         }
 
-        const f = this.imapClient.fetch(`${uid}`, { bodies: '', struct: true });
+        const f = this.client.fetch(`${uid}`, { bodies: '', struct: true });
         
         let attachmentInfo: { partID: string; filename: string; contentType: string } | null = null;
         
@@ -913,7 +743,7 @@ export class MailService {
           msg.once('attributes', (attrs) => {
             try {
               const struct = attrs.struct;
-              const attachments = this.findAttachmentParts(struct);
+              const attachments = MailUtils.findAttachmentParts(struct);
               
               if (attachments.length <= attachmentIndex) {
                 console.log(`Attachment index ${attachmentIndex} out of range, total attachments: ${attachments.length}`);
@@ -937,7 +767,7 @@ export class MailService {
             }
             
             // Get attachment content
-            const attachmentFetch = this.imapClient.fetch(`${uid}`, { 
+            const attachmentFetch = this.client.fetch(`${uid}`, { 
               bodies: [attachmentInfo.partID],
               struct: true 
             });
@@ -992,93 +822,22 @@ export class MailService {
   }
 
   /**
-   * Helper method: find all attachments in mail structure
-   */
-  private findAttachmentParts(struct: any[], prefix = ''): { partID: string; filename: string; contentType: string }[] {
-    const attachments: { partID: string; filename: string; contentType: string }[] = [];
-    
-    if (!struct || !Array.isArray(struct)) return attachments;
-    
-    const processStruct = (s: any, partID = '') => {
-      if (Array.isArray(s)) {
-        // Multi-part structure
-        if (s[0] && typeof s[0] === 'object' && s[0].partID) {
-          // This is a specific part
-          if (s[0].disposition && 
-              (s[0].disposition.type.toLowerCase() === 'attachment' || 
-               s[0].disposition.type.toLowerCase() === 'inline')) {
-            let filename = '';
-            if (s[0].disposition.params && s[0].disposition.params.filename) {
-              filename = s[0].disposition.params.filename;
-            } else if (s[0].params && s[0].params.name) {
-              filename = s[0].params.name;
-            }
-            
-            const contentType = s[0].type + '/' + s[0].subtype;
-            
-            if (filename) {
-              attachments.push({
-                partID: s[0].partID,
-                filename: filename,
-                contentType: contentType
-              });
-            }
-          }
-        } else {
-          // Iterate through each element in the array
-          for (let i = 0; i < s.length; i++) {
-            const newPrefix = partID ? `${partID}.${i + 1}` : `${i + 1}`;
-            if (Array.isArray(s[i])) {
-              processStruct(s[i], newPrefix);
-            } else if (typeof s[i] === 'object') {
-              // Might be a part definition
-              if (s[i].disposition && 
-                  (s[i].disposition.type.toLowerCase() === 'attachment' || 
-                   s[i].disposition.type.toLowerCase() === 'inline')) {
-                let filename = '';
-                if (s[i].disposition.params && s[i].disposition.params.filename) {
-                  filename = s[i].disposition.params.filename;
-                } else if (s[i].params && s[i].params.name) {
-                  filename = s[i].params.name;
-                }
-                
-                const contentType = s[i].type + '/' + s[i].subtype;
-                
-                if (filename) {
-                  attachments.push({
-                    partID: newPrefix,
-                    filename: filename,
-                    contentType: contentType
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    };
-    
-    processStruct(struct, prefix);
-    return attachments;
-  }
-
-  /**
    * Batch mark mails as read
    */
   async markMultipleAsRead(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure all uids are numeric type
     const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
         
-        this.imapClient.addFlags(numericUids, '\\Seen', (err) => {
+        this.client.addFlags(numericUids, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -1093,19 +852,19 @@ export class MailService {
    * Batch mark mails as unread
    */
   async markMultipleAsUnread(uids: (number | string)[], folder: string = 'INBOX'): Promise<boolean> {
-    await this.connectImap();
+    await this.connect();
     
     // Ensure all uids are numeric type
     const numericUids = uids.map(uid => typeof uid === 'string' ? parseInt(uid, 10) : uid);
 
     return new Promise((resolve, reject) => {
-      this.imapClient.openBox(folder, false, (err) => {
+      this.client.openBox(folder, false, (err) => {
         if (err) {
           reject(err);
           return;
         }
         
-        this.imapClient.delFlags(numericUids, '\\Seen', (err) => {
+        this.client.delFlags(numericUids, '\\Seen', (err) => {
           if (err) {
             reject(err);
             return;
@@ -1118,22 +877,9 @@ export class MailService {
 
   /**
    * Wait for new mail reply
-   * This method uses polling to detect new mail arrivals. Mainly used for scenarios that need to wait for user mail replies.
-   * 
-   * Working principle:
-   * 1. First check if there are unread mails within 5 minutes, if yes, return special status to prompt processing of these mails first
-   * 2. If no recent unread mails, then:
-   *    - Connect to IMAP server and get current mail count
-   *    - Check every 5 seconds for mail count changes
-   *    - If new mail is detected, get the latest mail content
-   *    - If no new mail arrives within the specified time, return null
-   * 
-   * @param folder Folder to listen to, defaults to 'INBOX' (inbox)
-   * @param timeout Timeout (milliseconds), defaults to 3 hours. Returns null if timeout
-   * @returns If new mail arrives before timeout, return mail details; if timeout, return null; if there are recent unread mails, return list with special marker
    */
-  async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<MailItem | null | { type: 'unread_warning'; mails: MailItem[] }> {
-    await this.connectImap();
+  async waitForNewReply(folder: string = 'INBOX', timeout: number = 3 * 60 * 60 * 1000): Promise<WaitForNewReplyResponse> {
+    await this.connect();
 
     // Check for unread mails within 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -1150,7 +896,7 @@ export class MailService {
       return {
         type: 'unread_warning',
         mails: existingMails
-      };
+      } as UnreadWarning;
     }
 
     return new Promise((resolve, reject) => {
@@ -1179,7 +925,7 @@ export class MailService {
       }, timeout);
 
       // Get initial mail count and start polling
-      this.imapClient.openBox(folder, false, (err, mailbox) => {
+      this.client.openBox(folder, false, (err, mailbox) => {
         if (err) {
           cleanup();
           reject(err);
@@ -1196,7 +942,7 @@ export class MailService {
 
           try {
             // Reopen mailbox to get latest status
-            this.imapClient.openBox(folder, false, async (err, mailbox) => {
+            this.client.openBox(folder, false, async (err, mailbox) => {
               if (err || isResolved) return;
 
               const currentCount = mailbox.messages.total;
@@ -1232,4 +978,4 @@ export class MailService {
       });
     });
   }
-} 
+}
