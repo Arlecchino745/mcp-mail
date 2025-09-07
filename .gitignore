@@ -14,6 +14,10 @@ build/
 .env.local
 .env.*.local
 
+# Secure credential files
+.master.key
+.credentials.enc
+
 # Editor configuration
 .vscode/
 .idea/

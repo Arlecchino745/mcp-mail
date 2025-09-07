@@ -1,5 +1,5 @@
 import { MailConfig } from '../service/exports.js';
-import { ConfigValidator, SecurityEnhancement } from '../security/index.js';
+import { ConfigValidator, SecurityEnhancement, CredentialManager } from '../security/index.js';
 
 /**
  * Validate whether necessary environment variables are set
@@ -73,9 +73,23 @@ ${ConfigValidator.getSecurityRecommendations().map(rec => `- ${rec}`).join('\n')
 }
 
 /**
- * Load mail configuration from environment variables
+ * Load mail configuration from environment variables or secure storage
  */
 export function loadMailConfig(): MailConfig {
+  // Try to load credentials from secure storage first
+  const credentialManager = CredentialManager.getInstance();
+  let smtpPass = process.env.SMTP_PASS;
+  let imapPass = process.env.IMAP_PASS;
+  
+  if (credentialManager.hasSecureCredentials()) {
+    const storedCredentials = credentialManager.retrieveCredentials();
+    if (storedCredentials) {
+      smtpPass = storedCredentials.smtpPass;
+      imapPass = storedCredentials.imapPass;
+      SecurityEnhancement.logSecurityEvent('Loaded credentials from secure storage', {});
+    }
+  }
+
   const config = {
     smtp: {
       host: process.env.SMTP_HOST!,
@@ -83,7 +97,7 @@ export function loadMailConfig(): MailConfig {
       secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER!,
-        pass: process.env.SMTP_PASS!,
+        pass: smtpPass!,
       }
     },
     imap: {
@@ -92,7 +106,7 @@ export function loadMailConfig(): MailConfig {
       secure: process.env.IMAP_SECURE === 'true',
       auth: {
         user: process.env.IMAP_USER!,
-        pass: process.env.IMAP_PASS!,
+        pass: imapPass!,
       }
     },
     defaults: {

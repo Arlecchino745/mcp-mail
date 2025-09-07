@@ -159,7 +159,9 @@ export class ConfigValidator {
       'Validate all user inputs to prevent injection attacks',
       'Implement rate limiting for connection attempts',
       'Use certificate pinning for additional security',
-      'Regularly review and audit mail server configurations'
+      'Regularly review and audit mail server configurations',
+      'Set appropriate attachment size limits to prevent resource exhaustion',
+      'Validate attachment file types and content for security'
     ];
   }
 
@@ -189,6 +191,16 @@ export class ConfigValidator {
 
     if (process.env.IMAP_SECURE === 'false') {
       warnings.push('IMAP_SECURE is disabled. Consider enabling for better security');
+    }
+
+    // Validate MAX_ATTACHMENT_SIZE if set
+    if (process.env.MAX_ATTACHMENT_SIZE) {
+      const maxAttachmentSize = parseInt(process.env.MAX_ATTACHMENT_SIZE);
+      if (isNaN(maxAttachmentSize) || maxAttachmentSize <= 0) {
+        errors.push('MAX_ATTACHMENT_SIZE must be a positive integer');
+      } else if (maxAttachmentSize > 100 * 1024 * 1024) { // 100MB limit
+        warnings.push('MAX_ATTACHMENT_SIZE is set to a large value (>100MB). Consider if this is necessary for security.');
+      }
     }
 
     // Check for common development values in production

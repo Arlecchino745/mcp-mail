@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { promisify } from 'util';
 import { MailConfig, MailInfo } from './types.js';
-import { SecurityEnhancement } from '../security/index.js';
+import { SecurityEnhancement, EmailRateLimiters, Logger } from '../security/index.js';
 
 /**
  * SMTP service for sending emails
@@ -46,11 +46,16 @@ export class SmtpService {
         secure: this.config.smtp.secure
       });
     } catch (error) {
-      SecurityEnhancement.logSecurityEvent('SMTP connection verification failed', { 
-        host: this.config.smtp.host, 
-        error: error instanceof Error ? error.message : String(error) 
+      SecurityEnhancement.logSecurityEvent('SMTP connection verification failed', {
+        host: this.config.smtp.host,
+        error: error instanceof Error ? error.message : String(error)
       });
-      console.error('SMTP verification failed:', error);
+      
+      const logger = Logger.getInstance();
+      logger.error('SMTP verification failed', {
+        host: this.config.smtp.host,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
@@ -59,6 +64,21 @@ export class SmtpService {
    */
   async sendMail(mailInfo: MailInfo): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      // Rate limiting check
+      const userEmail = this.config.defaults.fromEmail;
+      const rateLimitResult = EmailRateLimiters.sendMail.isAllowed(userEmail);
+      
+      if (!rateLimitResult.allowed) {
+        SecurityEnhancement.logSecurityEvent('Rate limit exceeded for sendMail', {
+          userEmail,
+          resetIn: rateLimitResult.resetIn
+        });
+        return {
+          success: false,
+          error: `Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`
+        };
+      }
+
       // Validate email addresses to prevent injection
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       
@@ -139,10 +159,15 @@ export class SmtpService {
       
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      SecurityEnhancement.logSecurityEvent('Email send failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      SecurityEnhancement.logSecurityEvent('Email send failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
-      console.error('Send mail error:', error);
+      
+      const logger = Logger.getInstance();
+      logger.error('Send mail error', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }

@@ -6,6 +6,7 @@ import { registerSendingTools } from './sending-tools.js';
 import { registerReceivingTools } from './receiving-tools.js';
 import { registerFolderTools } from './folder-tools.js';
 import { registerFlagTools } from './flag-tools.js';
+import { registerCredentialTools } from './credential-tools.js';
 
 export class MailMCP {
   private server: McpServer;
@@ -52,6 +53,9 @@ export class MailMCP {
     
     // Mail flag tools
     registerFlagTools(this.server, this.mailService);
+    
+    // Credential management tools
+    registerCredentialTools(this.server);
   }
 
   /**

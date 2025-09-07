@@ -31,8 +31,9 @@ export class FileSecurity {
     '.mst', '.cpl', '.ins', '.isp', '.ws', '.wsf', '.wsh'
   ];
 
-  // Maximum file size (50MB)
-  private static readonly MAX_FILE_SIZE = 50 * 1024 * 1024;
+  // Maximum file size (50MB by default, configurable via MAX_ATTACHMENT_SIZE environment variable)
+  private static readonly MAX_FILE_SIZE = process.env.MAX_ATTACHMENT_SIZE ?
+    parseInt(process.env.MAX_ATTACHMENT_SIZE) : 50 * 1024 * 1024;
 
   // Maximum filename length
   private static readonly MAX_FILENAME_LENGTH = 255;
@@ -165,8 +166,11 @@ export class FileSecurity {
   static validateFileSize(size: number): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (size > this.MAX_FILE_SIZE) {
-      errors.push(`File size ${Math.round(size / 1024 / 1024)}MB exceeds maximum allowed size of ${Math.round(this.MAX_FILE_SIZE / 1024 / 1024)}MB`);
+    // Validate that MAX_FILE_SIZE is a valid number
+    const maxFileSize = isNaN(this.MAX_FILE_SIZE) || this.MAX_FILE_SIZE <= 0 ? 50 * 1024 * 1024 : this.MAX_FILE_SIZE;
+
+    if (size > maxFileSize) {
+      errors.push(`File size ${Math.round(size / 1024 / 1024)}MB exceeds maximum allowed size of ${Math.round(maxFileSize / 1024 / 1024)}MB`);
     }
 
     if (size <= 0) {
@@ -490,5 +494,39 @@ export class FileSecurity {
       canBeSanitized: isHtml,
       extension: path.extname(attachment.filename).toLowerCase()
     };
+  }
+  
+  /**
+   * Validate content type for attachments
+   */
+  static isValidAttachmentContentType(contentType: string): boolean {
+    // List of allowed content types for attachments
+    const allowedTypes = [
+      'text/plain',
+      'text/html',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    
+    // Allow if content type is in allowed list
+    if (allowedTypes.includes(contentType)) {
+      return true;
+    }
+    
+    // Allow if it's a subtype of allowed types (e.g., image/* for image types)
+    const [type, subtype] = contentType.split('/');
+    if (type === 'image' && ['jpeg', 'png', 'gif'].includes(subtype)) {
+      return true;
+    }
+    
+    return false;
   }
 }

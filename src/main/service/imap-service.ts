@@ -15,7 +15,7 @@ import {
   UnreadWarning
 } from './types.js';
 import { MailUtils } from './utils.js';
-import { SecurityEnhancement } from '../security/index.js';
+import { SecurityEnhancement, EmailRateLimiters, Logger } from '../security/index.js';
 
 /**
  * IMAP service for receiving and managing emails
@@ -45,7 +45,8 @@ export class ImapService {
 
     // Listen for IMAP connection errors
     this.client.on('error', (err: Error) => {
-      console.error('IMAP error:', err);
+      const logger = Logger.getInstance();
+      logger.error('IMAP connection error', { error: err.message });
       this.isConnected = false;
     });
   }
@@ -68,9 +69,14 @@ export class ImapService {
       });
 
       this.client.once('error', (err: Error) => {
-        SecurityEnhancement.logSecurityEvent('IMAP connection failed', { 
-          host: this.config.imap.host, 
-          error: err.message 
+        const logger = Logger.getInstance();
+        logger.error('IMAP connection failed', {
+          host: this.config.imap.host,
+          error: err.message
+        });
+        SecurityEnhancement.logSecurityEvent('IMAP connection failed', {
+          host: this.config.imap.host,
+          error: err.message
         });
         reject(err);
       });
@@ -93,6 +99,18 @@ export class ImapService {
    * Get mailbox folder list
    */
   async getFolders(): Promise<string[]> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.folder.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for getFolders', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     await this.connect();
 
     return new Promise((resolve, reject) => {
@@ -124,6 +142,18 @@ export class ImapService {
    * Search mails
    */
   async searchMails(options: MailSearchOptions = {}): Promise<MailItem[]> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.receiveMail.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for searchMails', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     await this.connect();
 
     const folder = options.folder || 'INBOX';
@@ -240,10 +270,46 @@ export class ImapService {
                       filename: att.filename || 'unknown',
                       contentType: att.contentType,
                       size: att.size,
-                    }));
-                    message.hasAttachments = parsed.attachments.length > 0;
+                    })).filter(att => {
+                      // Validate content type - only allow safe content types
+                      const allowedTypes = [
+                        'text/plain',
+                        'text/html',
+                        'image/jpeg',
+                        'image/png',
+                        'image/gif',
+                        'application/pdf',
+                        'application/msword',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'application/vnd.ms-excel',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/vnd.ms-powerpoint',
+                        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                      ];
+                      
+                      // Allow if content type is in allowed list
+                      if (allowedTypes.includes(att.contentType)) {
+                        return true;
+                      }
+                      
+                      // Allow if it's a subtype of allowed types (e.g., image/* for image types)
+                      const [type, subtype] = att.contentType.split('/');
+                      if (type === 'image' && ['jpeg', 'png', 'gif'].includes(subtype)) {
+                        return true;
+                      }
+                      
+                      // Log security event for blocked attachment
+                      SecurityEnhancement.logSecurityEvent('Blocked attachment with unsafe content type', {
+                        contentType: att.contentType,
+                        filename: att.filename
+                      });
+                      
+                      return false;
+                    });
+                    message.hasAttachments = message.attachments.length > 0;
                   }).catch(err => {
-                    console.error('Parse mail content error:', err);
+                    const logger = Logger.getInstance();
+                    logger.error('Parse mail content error', { error: err.message });
                   });
                 }
               });
@@ -283,6 +349,18 @@ export class ImapService {
    * Get mail details
    */
   async getMailDetail(uid: number | string, folder: string = 'INBOX'): Promise<MailItem | null> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.receiveMail.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for getMailDetail', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     await this.connect();
 
     // Ensure uid is numeric type
@@ -375,12 +453,50 @@ export class ImapService {
                     filename: att.filename || 'unknown',
                     contentType: att.contentType,
                     size: att.size,
-                  })),
+                  })).filter(att => {
+                    // Validate content type - only allow safe content types
+                    const allowedTypes = [
+                      'text/plain',
+                      'text/html',
+                      'image/jpeg',
+                      'image/png',
+                      'image/gif',
+                      'application/pdf',
+                      'application/msword',
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                      'application/vnd.ms-excel',
+                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                      'application/vnd.ms-powerpoint',
+                      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                    ];
+                    
+                    // Allow if content type is in allowed list
+                    if (allowedTypes.includes(att.contentType)) {
+                      return true;
+                    }
+                    
+                    // Allow if it's a subtype of allowed types (e.g., image/* for image types)
+                    const [type, subtype] = att.contentType.split('/');
+                    if (type === 'image' && ['jpeg', 'png', 'gif'].includes(subtype)) {
+                      return true;
+                    }
+                    
+                    // Log security event for blocked attachment
+                    SecurityEnhancement.logSecurityEvent('Blocked attachment with unsafe content type', {
+                      contentType: att.contentType,
+                      filename: att.filename
+                    });
+                    
+                    return false;
+                  }),
                   textBody: parsed.text || undefined,
                   htmlBody: parsed.html || undefined,
                   size: 0, // Will be updated via attributes
                   folder,
                 };
+                
+                // Update hasAttachments based on filtered attachments
+                mailItem.hasAttachments = mailItem.attachments!.length > 0;
 
                 // If attributes have been received, apply them now
                 if (attributes) {
@@ -392,7 +508,8 @@ export class ImapService {
                 bodyParsed = true;
                 checkAndResolve();
               }).catch(err => {
-                console.error('Parse mail details error:', err);
+                const logger = Logger.getInstance();
+                logger.error('Parse mail details error', { error: err.message });
                 reject(err);
               });
             });
@@ -416,7 +533,8 @@ export class ImapService {
           endReceived = true;
           // If mail has no content, or if there are issues during processing, try to ensure at least an empty result is returned
           if (!bodyParsed && !mailItem) {
-            console.log(`No mail found with UID ${numericUid} or mail content is empty`);
+            const logger = Logger.getInstance();
+            logger.info('No mail found or mail content is empty', { uid: numericUid });
           }
           checkAndResolve();
         });
@@ -543,11 +661,27 @@ export class ImapService {
    * Advanced search mails - support multiple folders and more complex filter conditions
    */
   async advancedSearchMails(options: AdvancedSearchOptions): Promise<MailItem[]> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.receiveMail.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for advancedSearchMails', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     const allResults: MailItem[] = [];
     const folders = options.folders || ['INBOX'];
     const maxResults = options.maxResults || 100;
     
-    console.log(`Performing advanced search, folders: ${folders.join(', ')}, keywords: ${options.keywords || 'none'}`);
+    const logger = Logger.getInstance();
+    logger.info('Performing advanced search', {
+      folders: folders.join(', '),
+      keywords: options.keywords || 'none'
+    });
     
     // Search each folder
     for (const folder of folders) {
@@ -596,7 +730,11 @@ export class ImapService {
           allResults.push(...folderResults);
         }
       } catch (error) {
-        console.error(`Error searching folder ${folder}:`, error);
+        const logger = Logger.getInstance();
+        logger.error(`Error searching folder ${folder}`, {
+          folder,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Continue searching other folders
       }
     }
@@ -612,6 +750,18 @@ export class ImapService {
    * Get address book - extract contact information based on email history
    */
   async getContacts(options: ContactsOptions = {}): Promise<ContactsResponse> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.receiveMail.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for getContacts', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     const maxResults = options.maxResults || 100;
     const searchTerm = options.searchTerm?.toLowerCase() || '';
     
@@ -699,7 +849,11 @@ export class ImapService {
           }
         });
       } catch (error) {
-        console.error(`Error collecting contacts from folder ${folder}:`, error);
+        const logger = Logger.getInstance();
+        logger.error(`Error collecting contacts from folder ${folder}`, {
+          folder,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Continue processing other folders
       }
     }
@@ -728,13 +882,30 @@ export class ImapService {
    * Get mail attachment
    */
   async getAttachment(uid: number, folder: string = 'INBOX', attachmentIndex: number): Promise<AttachmentData | null> {
+    // Rate limiting check
+    const userEmail = this.config.defaults.fromEmail;
+    const rateLimitResult = EmailRateLimiters.attachment.isAllowed(userEmail);
+    
+    if (!rateLimitResult.allowed) {
+      SecurityEnhancement.logSecurityEvent('Rate limit exceeded for getAttachment', {
+        userEmail,
+        resetIn: rateLimitResult.resetIn
+      });
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(rateLimitResult.resetIn / 1000)} seconds.`);
+    }
+
     await this.connect();
-    console.log(`Getting attachment ${attachmentIndex} for UID ${uid}...`);
+    const logger = Logger.getInstance();
+    logger.info('Getting attachment', { uid, attachmentIndex });
 
     return new Promise((resolve, reject) => {
       this.client.openBox(folder, true, (err) => {
         if (err) {
-          console.error(`Failed to open folder ${folder}:`, err);
+          const logger = Logger.getInstance();
+          logger.error(`Failed to open folder ${folder}`, {
+            folder,
+            error: err instanceof Error ? err.message : String(err)
+          });
           reject(err);
           return;
         }
@@ -756,22 +927,31 @@ export class ImapService {
               const attachments = MailUtils.findAttachmentParts(struct);
               
               if (attachments.length <= attachmentIndex) {
-                console.log(`Attachment index ${attachmentIndex} out of range, total attachments: ${attachments.length}`);
+                const logger = Logger.getInstance();
+                logger.info('Attachment index out of range', {
+                  attachmentIndex,
+                  totalAttachments: attachments.length
+                });
                 resolve(null);
                 return;
               }
               
               attachmentInfo = attachments[attachmentIndex];
-              console.log('Found attachment info:', attachmentInfo);
+              const logger = Logger.getInstance();
+              logger.info('Found attachment info', { attachmentInfo });
             } catch (error) {
-              console.error('Error parsing attachment structure:', error);
+              const logger = Logger.getInstance();
+              logger.error('Error parsing attachment structure', {
+                error: error instanceof Error ? error.message : String(error)
+              });
               reject(error);
             }
           });
           
           msg.once('end', () => {
             if (!attachmentInfo) {
-              console.log('Attachment not found or invalid attachment index');
+              const logger = Logger.getInstance();
+              logger.info('Attachment not found or invalid attachment index');
               resolve(null);
               return;
             }
@@ -791,22 +971,28 @@ export class ImapService {
                 });
                 
                 stream.once('end', () => {
-                  console.log(`Attachment content download completed, size: ${buffer.length} bytes`);
+                  const logger = Logger.getInstance();
+                  logger.info('Attachment content download completed', { size: buffer.length });
                 });
               });
               
               msg.once('end', () => {
-                console.log('Attachment message processing completed');
+                const logger = Logger.getInstance();
+                logger.info('Attachment message processing completed');
               });
             });
             
             attachmentFetch.once('error', (err) => {
-              console.error('Error getting attachment content:', err);
+              const logger = Logger.getInstance();
+              logger.error('Error getting attachment content', {
+                error: err instanceof Error ? err.message : String(err)
+              });
               reject(err);
             });
             
             attachmentFetch.once('end', () => {
-              console.log('Attachment retrieval process ended');
+              const logger = Logger.getInstance();
+              logger.info('Attachment retrieval process ended');
               resolve({
                 filename: attachmentInfo!.filename,
                 content: buffer,
@@ -817,13 +1003,17 @@ export class ImapService {
         });
         
         f.once('error', (err) => {
-          console.error('Error getting mail:', err);
+          const logger = Logger.getInstance();
+          logger.error('Error getting mail', {
+            error: err instanceof Error ? err.message : String(err)
+          });
           reject(err);
         });
         
         f.once('end', () => {
           if (!attachmentInfo) {
-            console.log('No attachment found or no attachments in structure');
+            const logger = Logger.getInstance();
+            logger.info('No attachment found or no attachments in structure');
             resolve(null);
           }
         });
@@ -902,7 +1092,10 @@ export class ImapService {
 
     // If there are unread mails within 5 minutes, return special status
     if (existingMails.length > 0) {
-      console.log(`[waitForNewReply] Found ${existingMails.length} unread mails in the last 5 minutes, need to process first`);
+      const logger = Logger.getInstance();
+      logger.info('[waitForNewReply] Found unread mails in the last 5 minutes, need to process first', {
+        count: existingMails.length
+      });
       return {
         type: 'unread_warning',
         mails: existingMails
@@ -944,7 +1137,10 @@ export class ImapService {
 
         // Record initial mail count
         initialCount = mailbox.messages.total;
-        console.log(`[waitForNewReply] Initial mail count: ${initialCount}, starting to wait for new mail reply...`);
+        const logger = Logger.getInstance();
+        logger.info('[waitForNewReply] Initial mail count, starting to wait for new mail reply...', {
+          initialCount
+        });
 
         // Check for new mails every 5 seconds
         checkInterval = setInterval(async () => {
@@ -956,7 +1152,11 @@ export class ImapService {
               if (err || isResolved) return;
 
               const currentCount = mailbox.messages.total;
-              console.log(`[waitForNewReply] Current mail count: ${currentCount}, initial count: ${initialCount}`);
+              const logger = Logger.getInstance();
+              logger.info('[waitForNewReply] Current mail count', {
+                currentCount,
+                initialCount
+              });
 
               if (currentCount > initialCount) {
                 // There are new mails, get the latest mail
@@ -970,19 +1170,28 @@ export class ImapService {
                     // Get complete mail content
                     const fullMail = await this.getMailDetail(messages[0].uid, folder);
                     if (fullMail) {
-                      console.log(`[waitForNewReply] Received new mail reply, subject: "${fullMail.subject}"`);
+                      const logger = Logger.getInstance();
+                      logger.info('[waitForNewReply] Received new mail reply', {
+                        subject: fullMail.subject
+                      });
                       isResolved = true;
                       cleanup();
                       resolve(fullMail);
                     }
                   }
                 } catch (error) {
-                  console.error('[waitForNewReply] Failed to get new mail:', error);
+                  const logger = Logger.getInstance();
+                  logger.error('[waitForNewReply] Failed to get new mail', {
+                    error: error instanceof Error ? error.message : String(error)
+                  });
                 }
               }
             });
           } catch (error) {
-            console.error('[waitForNewReply] Error checking for new mail:', error);
+            const logger = Logger.getInstance();
+            logger.error('[waitForNewReply] Error checking for new mail', {
+              error: error instanceof Error ? error.message : String(error)
+            });
           }
         }, 5000);
       });
