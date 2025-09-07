@@ -13,7 +13,7 @@ export function registerCredentialTools(server: McpServer): void {
       smtpPass: z.string(),
       imapPass: z.string()
     },
-    async (params: { smtpPass: string; imapPass: string }) => {
+    async (params) => {
       try {
         const credentialManager = CredentialManager.getInstance();
         credentialManager.storeCredentials({
@@ -94,7 +94,7 @@ export function registerCredentialTools(server: McpServer): void {
     {
       confirm: z.boolean()
     },
-    async (params: { confirm: boolean }) => {
+    async (params) => {
       if (!params.confirm) {
         return {
           content: [

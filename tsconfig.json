@@ -12,5 +12,10 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "src/main/security/security-facade.ts",
+    "src/main/security/password-validator.ts"
+  ]
 } 

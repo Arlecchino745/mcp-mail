@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { promisify } from 'util';
 import { MailConfig, MailInfo } from './types.js';
-import { SecurityEnhancement, EmailRateLimiters, Logger, HtmlSanitizer, ContentSecurity } from '../security/index.js';
+import { SecurityEnhancement, EmailRateLimiters, Logger, HtmlSanitizer } from '../security/index.js';
 
 /**
  * SMTP service for sending emails

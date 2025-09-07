@@ -6,6 +6,4 @@ export { HtmlSanitizer } from './html-sanitizer.js';
 export { RateLimiter, EmailRateLimiters } from './rate-limiter.js';
 export { CredentialManager } from './credential-manager.js';
 export { Logger } from './logger.js';
-export { PasswordValidator } from './password-validator.js';
 export { ContentSecurity } from './content-security.js';
-export { Security } from './security-facade.js';
