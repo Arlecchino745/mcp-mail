@@ -1,6 +1,6 @@
 # Mail MCP Tool
 
-A fork of https://github.com/shuakami/mcp-mail.
+A fork of https://github.com/shuakami/mcp-mail. Developed with the help of AI.
 
 ## What is this
 
