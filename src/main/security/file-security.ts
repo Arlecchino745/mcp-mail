@@ -2,8 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { PathValidator } from './path-validator.js';
-import { SecurityEnhancement } from './security-enhancement.js';
 import { HtmlSanitizer } from './html-sanitizer.js';
+import { ContentSecurity } from './content-security.js';
+import { Logger } from './logger.js';
 
 /**
  * File security utilities for safe file operations
@@ -252,9 +253,9 @@ export class FileSecurity {
     }
 
     // Check for suspicious content patterns
-    const contentCheck = SecurityEnhancement.detectSuspiciousContent(attachment.content);
+    const contentCheck = ContentSecurity.detectSuspiciousContent(attachment.content);
     if (contentCheck.isSuspicious) {
-      errors.push(`Suspicious content detected: ${contentCheck.reasons.join(', ')}`);
+      errors.push(`Suspicious content detected: ${contentCheck.detections.map(d => d.description).join(', ')}`);
     }
 
     // Special validation for HTML files
@@ -270,7 +271,8 @@ export class FileSecurity {
     }
 
     // Log security validation
-    SecurityEnhancement.logSecurityEvent('Attachment validation completed', {
+    const logger = Logger.getInstance();
+    logger.security('Attachment validation completed', {
       filename: attachment.filename,
       size: attachment.content.length,
       contentType: attachment.contentType,
@@ -293,6 +295,8 @@ export class FileSecurity {
     attachment: { filename: string; content: Buffer; contentType: string },
     targetDir?: string
   ): Promise<{ success: boolean; filePath?: string; error?: string; warnings?: string[] }> {
+    const logger = Logger.getInstance();
+    
     try {
       // Validate attachment first
       const validation = this.validateAttachment(attachment);
@@ -318,7 +322,7 @@ export class FileSecurity {
       const allowedDir = path.resolve(dirResult.path);
       const resolvedPath = path.resolve(safePath);
       if (!resolvedPath.startsWith(allowedDir + path.sep) && resolvedPath !== allowedDir) {
-        SecurityEnhancement.logSecurityEvent('Path traversal attempt blocked', {
+        logger.security('Path traversal attempt blocked', {
           filename: attachment.filename,
           attemptedPath: safePath,
           allowedDir
@@ -337,7 +341,7 @@ export class FileSecurity {
           allWarnings.push('HTML content was sanitized before saving');
           allWarnings.push(...htmlSanitization.warnings);
           
-          SecurityEnhancement.logSecurityEvent('HTML content sanitized', {
+          logger.security('HTML content sanitized', {
             filename: attachment.filename,
             originalSize: attachment.content.length,
             sanitizedSize: contentToSave.length,
@@ -351,7 +355,7 @@ export class FileSecurity {
       // Write file with secure permissions
       await fs.promises.writeFile(safePath, contentToSave, { mode: 0o644 });
 
-      SecurityEnhancement.logSecurityEvent('Attachment saved securely', {
+      logger.security('Attachment saved securely', {
         filename: attachment.filename,
         savedPath: safePath,
         size: contentToSave.length,
@@ -365,7 +369,7 @@ export class FileSecurity {
         warnings: allWarnings.length > 0 ? allWarnings : undefined
       };
     } catch (error) {
-      SecurityEnhancement.logSecurityEvent('Attachment save failed', {
+      logger.security('Attachment save failed', {
         filename: attachment.filename,
         error: error instanceof Error ? error.message : String(error)
       });

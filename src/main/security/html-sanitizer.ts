@@ -255,4 +255,26 @@ export class HtmlSanitizer {
       warnings
     };
   }
+
+  /**
+   * Sanitize email content to prevent injection attacks
+   * This method provides basic text sanitization for email content
+   */
+  static sanitizeEmailContent(content: string): string {
+    if (!content || typeof content !== 'string') {
+      return '';
+    }
+
+    // Remove potentially dangerous patterns
+    return content
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/vbscript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/data:text\/html/gi, 'data:text/plain')
+      .replace(/data:application\/javascript/gi, 'data:text/plain')
+      .replace(/data:text\/javascript/gi, 'data:text/plain')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+      .trim();
+  }
 }

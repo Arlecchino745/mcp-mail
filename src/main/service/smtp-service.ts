@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { promisify } from 'util';
 import { MailConfig, MailInfo } from './types.js';
-import { SecurityEnhancement, EmailRateLimiters, Logger } from '../security/index.js';
+import { SecurityEnhancement, EmailRateLimiters, Logger, HtmlSanitizer, ContentSecurity } from '../security/index.js';
 
 /**
  * SMTP service for sending emails
@@ -114,8 +114,8 @@ export class SmtpService {
       }
 
       // Sanitize email content for security
-      const sanitizedText = mailInfo.text ? SecurityEnhancement.sanitizeEmailContent(mailInfo.text) : undefined;
-      const sanitizedHtml = mailInfo.html ? SecurityEnhancement.sanitizeEmailContent(mailInfo.html) : undefined;
+      const sanitizedText = mailInfo.text ? HtmlSanitizer.sanitizeEmailContent(mailInfo.text) : undefined;
+      const sanitizedHtml = mailInfo.html ? HtmlSanitizer.sanitizeEmailContent(mailInfo.html) : undefined;
 
       // Validate and sanitize subject
       let sanitizedSubject = mailInfo.subject;
