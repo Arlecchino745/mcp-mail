@@ -1,5 +1,7 @@
 # Mail MCP Tool
 
+<big><b>Due to code issues, this MCP Server is not working properly. No need to waste time trying now.</b></big>
+
 A fork of https://github.com/shuakami/mcp-mail. Developed with the help of AI.
 
 ## What is this
