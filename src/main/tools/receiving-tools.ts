@@ -93,8 +93,8 @@ export function registerReceivingTools(server: McpServer, mailService: MailServi
     {
       keywords: z.string().optional(),
       folders: z.array(z.string()).optional(),
-      startDate: z.union([z.date(), z.string().datetime({ message: "startDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
-      endDate: z.union([z.date(), z.string().datetime({ message: "endDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
+      startDate: z.union([z.date(), z.string().datetime()]).optional(),
+      endDate: z.union([z.date(), z.string().datetime()]).optional(),
       from: z.string().optional(),
       to: z.string().optional(),
       subject: z.string().optional(),
@@ -188,8 +188,8 @@ export function registerReceivingTools(server: McpServer, mailService: MailServi
       from: z.string().optional(),
       to: z.string().optional(),
       subject: z.string().optional(),
-      fromDate: z.union([z.date(), z.string().datetime({ message: "fromDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
-      toDate: z.union([z.date(), z.string().datetime({ message: "toDate must be a valid ISO 8601 date time string or Date object" })]).optional(),
+      fromDate: z.union([z.date(), z.string().datetime()]).optional(),
+      toDate: z.union([z.date(), z.string().datetime()]).optional(),
       hasAttachments: z.boolean().optional()
     },
     async (params) => {
