@@ -32,17 +32,17 @@ export class SmtpService {
         // Allow fallback for servers with self-signed certificates in development
         rejectUnauthorized: process.env.NODE_ENV === 'production'
       },
-      // Connection timeout settings
-      connectionTimeout: 60000, // 60 seconds
-      greetingTimeout: 30000,   // 30 seconds to wait for greeting
-      socketTimeout: 60000,     // 60 seconds for socket timeout
+      // Connection timeout settings - optimized for faster response
+      connectionTimeout: 20000, // 20 seconds
+      greetingTimeout: 15000,   // 15 seconds to wait for greeting
+      socketTimeout: 30000,     // 30 seconds for socket timeout
       // Pool settings for better connection management
       pool: true,
       maxConnections: 5,
       maxMessages: 100,
-      // Retry settings
-      retryDelay: 2000,
-      maxRetries: 3,
+      // Retry settings - reduced for faster response
+      retryDelay: 1000,
+      maxRetries: 2,
       // Debug logging in development
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
@@ -50,8 +50,12 @@ export class SmtpService {
 
     this.transporter = nodemailer.createTransport(transportOptions);
 
-    // Verify connection configuration
-    this.verifyConnection();
+    // Verify connection configuration - make it optional for faster startup
+    if (process.env.SKIP_SMTP_VERIFICATION !== 'true') {
+      this.verifyConnection();
+    } else {
+      console.log('SMTP verification skipped for faster startup');
+    }
   }
 
   /**
@@ -61,10 +65,10 @@ export class SmtpService {
     try {
       console.log(`Attempting to verify SMTP connection to ${this.config.smtp.host}:${this.config.smtp.port}`);
       
-      // Add timeout wrapper for verification
+      // Add timeout wrapper for verification - reduced timeout
       const verificationPromise = this.transporter.verify();
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection verification timeout')), 45000);
+        setTimeout(() => reject(new Error('Connection verification timeout')), 15000);
       });
 
       await Promise.race([verificationPromise, timeoutPromise]);
@@ -124,11 +128,11 @@ Current configuration:
   }
 
   /**
-   * Send mail with retry logic
+   * Send mail with retry logic - optimized for faster response
    */
   async sendMail(mailInfo: MailInfo): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const maxRetries = 3;
-    const retryDelay = 2000; // 2 seconds
+    const maxRetries = 2; // Reduced from 3
+    const retryDelay = 1000; // Reduced from 2000ms
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -272,10 +276,10 @@ Current configuration:
       console.log(`Attempting email send (attempt ${attempt})...`);
     }
 
-    // Add timeout wrapper for sending
+    // Add timeout wrapper for sending - reduced timeout
     const sendPromise = this.transporter.sendMail(mailOptions);
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Email send timeout')), 60000);
+      setTimeout(() => reject(new Error('Email send timeout')), 30000);
     });
 
     const info = await Promise.race([sendPromise, timeoutPromise]);

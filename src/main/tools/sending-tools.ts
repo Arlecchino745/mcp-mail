@@ -105,9 +105,9 @@ export function registerSendingTools(server: McpServer, mailService: MailService
               failureCount += batch.length;
             }
             
-            // Add delay to avoid mail server restrictions
+            // Add delay to avoid mail server restrictions - reduced delay
             if (i + batchSize < params.to.length) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           } catch (error) {
             console.error(`Error sending batch ${i / batchSize + 1}:`, error);
@@ -369,6 +369,82 @@ export function registerSendingTools(server: McpServer, mailService: MailService
         return {
           content: [
             { type: "text", text: `Error occurred while sending HTML mail: ${error instanceof Error ? error.message : String(error)}` }
+          ]
+        };
+      }
+    }
+  );
+
+  // Fast send mail tool with minimal validation for urgent emails
+  server.tool(
+    "sendMailFast",
+    {
+      to: z.array(z.string()),
+      cc: z.string().or(z.array(z.string())).optional(),
+      bcc: z.string().or(z.array(z.string())).optional(),
+      subject: z.string(),
+      text: z.string().optional(),
+      html: z.string().optional()
+    },
+    async (params) => {
+      try {
+        // Basic content check
+        if (!params.text && !params.html) {
+          return {
+            content: [
+              { type: "text", text: `Mail content cannot be empty, please provide text or html parameter.` }
+            ]
+          };
+        }
+        
+        // Minimal email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const toAddresses = Array.isArray(params.to) ? params.to : [params.to];
+        for (const addr of toAddresses) {
+          if (!emailRegex.test(addr)) {
+            return {
+              content: [
+                { type: "text", text: `Invalid email address: ${addr}` }
+              ]
+            };
+          }
+        }
+
+        const mailInfo: MailInfo = {
+          to: params.to,
+          subject: params.subject,
+          text: params.text,
+          html: params.html
+        };
+        
+        // Process CC and BCC information
+        if (params.cc) {
+          mailInfo.cc = typeof params.cc === 'string' ? params.cc : params.cc;
+        }
+        
+        if (params.bcc) {
+          mailInfo.bcc = typeof params.bcc === 'string' ? params.bcc : params.bcc;
+        }
+        
+        const result = await mailService.sendMail(mailInfo);
+        
+        if (result.success) {
+          return {
+            content: [
+              { type: "text", text: `Mail sent successfully (fast mode), message ID: ${result.messageId}` }
+            ]
+          };
+        } else {
+          return {
+            content: [
+              { type: "text", text: `Mail sending failed: ${result.error}` }
+            ]
+          };
+        }
+      } catch (error) {
+        return {
+          content: [
+            { type: "text", text: `Error occurred while sending mail: ${error instanceof Error ? error.message : String(error)}` }
           ]
         };
       }
