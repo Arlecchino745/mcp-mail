@@ -8,3 +8,4 @@ export { registerReceivingTools } from './receiving-tools.js';
 export { registerFolderTools } from './folder-tools.js';
 export { registerFlagTools } from './flag-tools.js';
 export { registerCredentialTools } from './credential-tools.js';
+export { registerDiagnosticTools } from './diagnostic-tools.js';

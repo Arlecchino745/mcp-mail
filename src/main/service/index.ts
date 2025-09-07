@@ -48,6 +48,13 @@ export class MailService {
   }
 
   /**
+   * Test SMTP connection with diagnostic information
+   */
+  async testSmtpConnection(): Promise<{ success: boolean; details: string[] }> {
+    return this.smtpService.testConnection();
+  }
+
+  /**
    * Get mailbox folder list
    */
   async getFolders(): Promise<string[]> {

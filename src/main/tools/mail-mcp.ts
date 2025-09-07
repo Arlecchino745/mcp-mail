@@ -7,6 +7,7 @@ import { registerReceivingTools } from './receiving-tools.js';
 import { registerFolderTools } from './folder-tools.js';
 import { registerFlagTools } from './flag-tools.js';
 import { registerCredentialTools } from './credential-tools.js';
+import { registerDiagnosticTools } from './diagnostic-tools.js';
 
 export class MailMCP {
   private server: McpServer;
@@ -42,6 +43,9 @@ export class MailMCP {
    * Register all MCP tools
    */
   private registerTools(): void {
+    // Diagnostic tools (should be registered first for troubleshooting)
+    registerDiagnosticTools(this.server, this.mailService);
+    
     // Mail sending related tools
     registerSendingTools(this.server, this.mailService);
     
